@@ -63,10 +63,15 @@ public:
     //! This will resolve the name to an ip for you
     bool listen(const std::string& name, uint16_t port, uint32_t backlog) __attribute__((warn_unused_result));
 
-    //! Close this socket
+    /**
+     * @brief close this socket
+     * @note this function will not report error on invalid sockets
+     */
     void close();
 
-    //! Is this a valid socket?
+    /**
+     * @brief Is this a valid socket? (i.e. either listening or connected)
+     */
     bool is_valid() const;
 
     //! Receive data
