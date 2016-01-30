@@ -1,6 +1,8 @@
 #include "EventLoop.h"
 #include "SocketListener.h"
 
+#include <thread>
+#include <stack>
 #include <sys/epoll.h>
 
 constexpr int32_t MAX_EVENTS = 1;
@@ -8,10 +10,9 @@ constexpr int32_t EPOLL_FLAGS = EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLONESHOT;
 
 using namespace yael;
 
-EventLoop::EventLoop()
-    : m_okay(true)
+EventLoop::EventLoop(int32_t num_threads)
+    : m_okay(true), m_epoll_fd(epoll_create1(0)), m_num_threads(num_threads)
 {
-    m_epoll_fd = epoll_create1(0);
     if(m_epoll_fd < 0)
         LOG(FATAL) << "epoll_create1() failed: " << strerror(errno);
 }
@@ -19,6 +20,25 @@ EventLoop::EventLoop()
 EventLoop::~EventLoop()
 {
     ::close(m_epoll_fd);
+}
+
+EventLoop* EventLoop::m_instance = nullptr;
+
+void EventLoop::initialize(int32_t num_threads) throw(std::runtime_error)
+{
+    if(m_instance)
+        throw std::runtime_error("EventLoop already initialized!");
+
+    m_instance = new EventLoop(num_threads);
+}
+
+void EventLoop::destroy() throw(std::runtime_error)
+{
+    if(!m_instance)
+        throw std::runtime_error("EventLoop does not exist (anymore)");
+
+    delete m_instance;
+    m_instance = nullptr;
 }
 
 void EventLoop::stop()
@@ -133,4 +153,37 @@ void EventLoop::register_socket_listener(int32_t fileno, SocketListener* listene
         LOG(FATAL) << "epoll_ctl() failed: " << strerror(errno);
 
     m_socket_listeners[fileno] = listener;
+}
+
+void EventLoop::thread_loop()
+{
+    while(this->is_okay())
+    {
+        this->update();
+    }
+}
+
+void EventLoop::run()
+{
+    int32_t num_threads = m_num_threads;
+    std::stack<std::thread> threads;
+
+    if(num_threads <= 0)
+    {
+        num_threads = 2 * std::thread::hardware_concurrency();
+
+        if(num_threads <= 0)
+            throw std::runtime_error("Could not detect number of hardware threads supported!");
+    }
+
+    for(int32_t i = 0; i < num_threads; ++i)
+    {
+        threads.push(std::thread(&EventLoop::thread_loop, this));
+    }
+
+    while(!threads.empty())
+    {
+        threads.top().join();
+        threads.pop();
+    }
 }

@@ -14,7 +14,10 @@ namespace yael
 namespace network
 {
 
-//! Object Oriented Wrapper for TCP Socket
+/**
+ * @brief Object-oriented wrapper for a TCP socket
+ * @note This implementatio is *not* thread safe. Use the EventLoop for multiple threads polling messages.
+ */
 class Socket
 {
 public:

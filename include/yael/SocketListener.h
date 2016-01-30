@@ -13,7 +13,6 @@ class EventLoop;
 
 /**
  * @brief The SocketListener class
- * @note
  */
 class SocketListener
 {
@@ -44,8 +43,15 @@ public:
      */
     int32_t get_fileno() const;
 
+    /**
+     * @brief will try to lock the associated mutex
+     */
     bool try_lock();
     void lock();
+
+    /**
+     * @brief unlocks the associated mutex
+     */
     void unlock();
 
     std::mutex& mutex();
