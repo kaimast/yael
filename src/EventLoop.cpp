@@ -1,8 +1,6 @@
 #include "EventLoop.h"
 #include "SocketListener.h"
 
-#include <thread>
-#include <stack>
 #include <sys/epoll.h>
 
 constexpr int32_t MAX_EVENTS = 1;
@@ -32,11 +30,8 @@ void EventLoop::initialize(int32_t num_threads) throw(std::runtime_error)
     m_instance = new EventLoop(num_threads);
 }
 
-void EventLoop::destroy() throw(std::runtime_error)
+void EventLoop::destroy()
 {
-    if(!m_instance)
-        throw std::runtime_error("EventLoop does not exist (anymore)");
-
     delete m_instance;
     m_instance = nullptr;
 }
@@ -166,7 +161,6 @@ void EventLoop::thread_loop()
 void EventLoop::run()
 {
     int32_t num_threads = m_num_threads;
-    std::stack<std::thread> threads;
 
     if(num_threads <= 0)
     {
@@ -178,12 +172,15 @@ void EventLoop::run()
 
     for(int32_t i = 0; i < num_threads; ++i)
     {
-        threads.push(std::thread(&EventLoop::thread_loop, this));
+        m_threads.push(std::thread(&EventLoop::thread_loop, this));
     }
+}
 
-    while(!threads.empty())
+void EventLoop::wait()
+{
+    while(!m_threads.empty())
     {
-        threads.top().join();
-        threads.pop();
+        m_threads.top().join();
+        m_threads.pop();
     }
 }

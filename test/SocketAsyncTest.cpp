@@ -4,7 +4,7 @@
 using namespace yael::network;
 
 const uint32_t data_len = 50 * 1000 * 1000;
-const Address addr = resolveUrl("localhost", 62123);
+const Address addr = resolve_URL("localhost", 62123);
 
 static uint32_t receive_len = 0;
 static char* data_received = nullptr;
@@ -16,7 +16,7 @@ static void receive_data()
     bool connected = socket.connect(addr);
     ASSERT_TRUE(connected);
 
-    bool has_data = socket.receive(data_received, receive_len, true);
+    bool has_data = socket.receive(data_received, receive_len);
 
     ASSERT_TRUE(has_data);
     ASSERT_TRUE(socket.is_connected());

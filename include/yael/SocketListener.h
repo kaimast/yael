@@ -9,8 +9,6 @@
 namespace yael
 {
 
-class EventLoop;
-
 /**
  * @brief The SocketListener class
  */
@@ -20,12 +18,17 @@ public:
     /**
      * @brief Construct with a valid socket
      */
-    SocketListener(EventLoop &loop, std::unique_ptr<network::Socket> &&socket);
+    SocketListener(std::unique_ptr<network::Socket> &&socket);
+
+    /**
+     * @brief Construct with a valid socket -- alternate version
+     */
+    SocketListener(network::Socket *socket);
 
     /**
      * @brief Construct without a valid socket (yet)
      */
-    SocketListener(EventLoop &loop);
+    SocketListener();
 
     SocketListener(const SocketListener& other) = delete;
     virtual ~SocketListener();
@@ -36,6 +39,7 @@ public:
      * @throw std::runtime_error if there is already a socket assigned to this listener
      */
     void set_socket(std::unique_ptr<network::Socket> &&socket) throw(std::runtime_error);
+    void set_socket(network::Socket* socket) throw(std::runtime_error);
 
     /**
      * @brief get the current or most recent fileno associated with this listener
@@ -67,11 +71,16 @@ public:
      */
     bool is_valid() const;
 
+protected:
+    network::Socket& socket()
+    {
+        return *m_socket;
+    }
+
 private:
-    EventLoop &m_loop;
+    std::unique_ptr<network::Socket> m_socket;
 
     std::mutex m_mutex;
-    std::unique_ptr<network::Socket> m_socket;
 
     int32_t m_fileno;
 };
@@ -95,5 +104,9 @@ inline void SocketListener::unlock()
     m_mutex.unlock();
 }
 
+inline void SocketListener::set_socket(network::Socket *socket) throw(std::runtime_error)
+{
+    set_socket(std::unique_ptr<network::Socket>(socket));
+}
 }
 

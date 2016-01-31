@@ -3,13 +3,19 @@
 
 using namespace yael;
 
-SocketListener::SocketListener(EventLoop &loop)
-    : m_loop(loop), m_socket(nullptr), m_fileno(-1)
+SocketListener::SocketListener()
+    : m_socket(nullptr), m_fileno(-1)
 {
 }
 
-SocketListener::SocketListener(EventLoop &loop, std::unique_ptr<network::Socket> &&socket)
-    : m_loop(loop), m_socket(nullptr), m_fileno(-1)
+SocketListener::SocketListener(network::Socket *socket)
+    : m_socket(nullptr), m_fileno(-1)
+{
+    set_socket(socket);
+}
+
+SocketListener::SocketListener(std::unique_ptr<network::Socket> &&socket)
+    : m_socket(nullptr), m_fileno(-1)
 {
     set_socket(std::move(socket));
 }
@@ -29,7 +35,8 @@ void SocketListener::set_socket(std::unique_ptr<network::Socket> &&socket) throw
     m_socket = std::move(socket);
     m_fileno = m_socket->get_fileno();
 
-    m_loop.register_socket_listener(m_fileno, this);
+    auto &loop = EventLoop::get_instance();
+    loop.register_socket_listener(m_fileno, this);
 }
 
 bool SocketListener::is_valid() const

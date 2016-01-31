@@ -27,14 +27,14 @@ namespace network
 {
 
 Socket::Socket()
-    : m_messages(), m_port(0), m_is_ipv6(false), m_fd(-1),
+    : m_messages(), m_port(0), m_is_ipv6(false), m_blocking(true), m_fd(-1),
       m_buffer_pos(-1), m_buffer_size(0), m_listening(false), m_client_address(),
       m_has_current_message(false)
 {
 }
 
 Socket::Socket(int fd,  uint16_t port)
-    : m_messages(), m_port(port), m_is_ipv6(false), m_fd(fd),
+    : m_messages(), m_port(port), m_is_ipv6(false), m_blocking(true), m_fd(fd),
       m_buffer_pos(-1), m_buffer_size(0), m_listening(false), m_client_address(),
       m_has_current_message(false)
 {
@@ -54,6 +54,8 @@ void Socket::set_blocking(bool blocking)
 
     flags = blocking ? flags | ~O_NONBLOCK : flags | O_NONBLOCK;
     fcntl(m_fd, F_SETFL, flags);
+
+    m_blocking = blocking;
 }
 
 bool Socket::create_fd()
@@ -167,7 +169,7 @@ bool Socket::connect(const Address& address, const std::string& name)
     }
     else
     {
-    	Address my_addr = resolveUrl(name, ANY_PORT, address.IPv6);
+        Address my_addr = resolve_URL(name, ANY_PORT, address.IPv6);
 
         if(!bind_socket(my_addr))
         {
@@ -202,7 +204,7 @@ bool Socket::connect(const Address& address, const std::string& name)
     return true;
 }
 
-Socket* Socket::accept(bool nonblocking)
+Socket* Socket::accept()
 {
     if(!is_listening())
     {
@@ -216,14 +218,14 @@ Socket* Socket::accept(bool nonblocking)
     {
         sockaddr_in6 sock_addr;
         socklen_t len = sizeof(sock_addr);
-        s = ::accept4(m_fd, reinterpret_cast<sockaddr*>(&sock_addr), &len, nonblocking ? SOCK_NONBLOCK : 0);
+        s = ::accept(m_fd, reinterpret_cast<sockaddr*>(&sock_addr), &len);
         address = Address(sock_addr);
     }
     else
     {
         sockaddr_in sock_addr;
         socklen_t len = sizeof(sock_addr);
-        s = ::accept4(m_fd, reinterpret_cast<sockaddr*>(&sock_addr), &len, nonblocking ? SOCK_NONBLOCK : 0);
+        s = ::accept(m_fd, reinterpret_cast<sockaddr*>(&sock_addr), &len);
         address = Address(sock_addr);
     }
 
@@ -475,38 +477,30 @@ std::vector<Socket::message_in_t> Socket::receive_all(bool blocking)
     return result;
 }
 
-std::vector<Socket*> Socket::accept_all()
-{
-    std::vector<Socket*> socks;
-
-    Socket *sock = accept();
-    while(sock)
-    {
-        socks.push_back(sock);
-        sock = accept(true);
-    }
-
-    return socks;
-}
-
-bool Socket::peek(datagram_in_t &head) const
+bool Socket::peek(datagram_in_t &head)
 {
     if(!has_messages())
-        return false;
+    {
+        if(!m_blocking)
+            return false;
+
+        while(!has_messages())
+            pull_messages(true);
+    }
 
     head = m_messages.front().datagrams[0];
     return true;
 }
 
-bool Socket::receive(message_in_t &message, bool blocking) throw (std::runtime_error)
+bool Socket::receive(message_in_t &message) throw (std::runtime_error)
 {
     if(!has_messages() && is_connected())
     {
-        pull_messages(blocking);
+        pull_messages(true);
 
-        while(blocking && !has_messages() && is_connected())
+        while(m_blocking && !has_messages() && is_connected())
         {
-            pull_messages(blocking);
+            pull_messages(false);
         }
     }
 

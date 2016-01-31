@@ -19,7 +19,7 @@ protected:
 
     void SetUp() override
     {
-        Address addr = resolveUrl("localhost", 62123);
+        Address addr = resolve_URL("localhost", 62123);
         bool listening = m_socket1.listen(addr.IP, addr.PortNumber, 10);
         ASSERT_TRUE(listening);
 

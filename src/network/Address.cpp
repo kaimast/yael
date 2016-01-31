@@ -63,7 +63,7 @@ bool Address::get_sock_address(sockaddr_in& addr) const
     return true;
 }
 
-Address resolveUrl(std::string url, uint16_t portNumber, bool IPv6_)
+Address resolve_URL(std::string url, uint16_t port_number, bool IPv6_)
 {
     struct addrinfo *host, *hosti;
     Address address;
@@ -100,7 +100,7 @@ Address resolveUrl(std::string url, uint16_t portNumber, bool IPv6_)
         freeaddrinfo(host);
     }
 
-    address.PortNumber = portNumber;
+    address.PortNumber = port_number;
     return address;
 }
 

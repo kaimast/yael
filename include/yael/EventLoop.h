@@ -1,5 +1,7 @@
 #pragma once
 
+#include <thread>
+#include <stack>
 #include <unordered_map>
 #include <mutex>
 #include <stdint.h>
@@ -20,6 +22,11 @@ public:
      * @brief initalizes worker threads that poll for new events
      */
     void run();
+
+    /**
+     * @brief wait for event loop to terminate
+     */
+    void wait();
 
     /**
      * @brief manually update the event loop
@@ -53,10 +60,10 @@ public:
     static void initialize(int32_t num_threads = -1) throw(std::runtime_error);
 
     /**
-     * @brief destroys the event loop instance
+     * @brief destroys the event loop instance. it is safe to call this multiple times.
      * @note you still have to destroy the instance after the event loop is destroyed
      */
-    static void destroy() throw(std::runtime_error);
+    static void destroy();
 
 private:
     void thread_loop();
@@ -73,6 +80,8 @@ private:
 
     std::mutex m_epoll_mutex;
     std::mutex m_socket_listeners_mutex;
+
+    std::stack<std::thread> m_threads;
 
     std::unordered_map<int32_t, SocketListener*> m_socket_listeners;
 

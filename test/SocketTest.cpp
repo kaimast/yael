@@ -28,7 +28,7 @@ TEST_F(SocketTest, send_one_way)
     char *data_received = nullptr;
     uint32_t receive_len = 0;
 
-    bool has_data = m_peer_socket->receive(data_received, receive_len, true);
+    bool has_data = m_peer_socket->receive(data_received, receive_len);
 
     ASSERT_TRUE(has_data);
 
@@ -57,7 +57,7 @@ TEST_F(SocketTest, multiple_datagrams)
     ASSERT_TRUE(sent);
 
     Socket::message_in_t message_in;
-    bool has_data = m_peer_socket->receive(message_in, true);
+    bool has_data = m_peer_socket->receive(message_in);
 
     ASSERT_TRUE(has_data);
 
@@ -82,7 +82,7 @@ TEST_F(SocketTest, send_other_way)
     char *data_received = nullptr;
     uint32_t receive_len = 0;
 
-    bool has_data = m_socket2.receive(data_received, receive_len, true);
+    bool has_data = m_socket2.receive(data_received, receive_len);
 
     ASSERT_TRUE(has_data);
 
@@ -103,11 +103,10 @@ TEST_F(SocketTest, peek)
     bool sent = m_socket2.send(data, len);
     ASSERT_TRUE(sent);
 
-    while(!m_peer_socket->has_messages())
-        m_peer_socket->pull_messages(true);
-
     Socket::datagram_in_t peeked;
-    ASSERT_EQ(true, m_peer_socket->peek(peeked));
+    bool res = m_peer_socket->peek(peeked);
+
+    ASSERT_EQ(true, res);
     ASSERT_EQ(len, peeked.length);
     ASSERT_EQ(0, memcmp(data, peeked.data, len));
     ASSERT_TRUE(m_peer_socket->has_messages());
@@ -132,13 +131,13 @@ TEST_F(SocketTest, first_in_first_out)
     char *data_received = nullptr;
     uint32_t receive_len = 0;
 
-    bool has_data = m_peer_socket->receive(data_received, receive_len, true);
+    bool has_data = m_peer_socket->receive(data_received, receive_len);
 
     ASSERT_TRUE(has_data);
     ASSERT_EQ(type1, *data_received);
     ASSERT_EQ(len, receive_len);
 
-    has_data = m_peer_socket->receive(data_received, receive_len, true);
+    has_data = m_peer_socket->receive(data_received, receive_len);
 
     ASSERT_TRUE(has_data);
     ASSERT_EQ(type2, *data_received);

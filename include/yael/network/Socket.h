@@ -49,10 +49,7 @@ public:
     ~Socket();
 
     //! Accept new connections
-    Socket* accept(bool nonblocking = false);
-
-    //! accepts as much client as possible without blocking
-    std::vector<Socket*> accept_all();
+    Socket* accept();
 
     bool has_messages() const;
 
@@ -78,8 +75,8 @@ public:
     bool is_valid() const;
 
     //! Receive data
-    bool receive(message_in_t& message, bool block = false) throw (std::runtime_error) __attribute__((warn_unused_result));
-    bool receive(char*& data, uint32_t& length, bool block = false) throw (std::runtime_error) __attribute__((warn_unused_result));
+    bool receive(message_in_t& message) throw (std::runtime_error) __attribute__((warn_unused_result));
+    bool receive(char*& data, uint32_t& length) throw (std::runtime_error) __attribute__((warn_unused_result));
 
     //! Send a message consisting of a list of datagrams
     bool send(const message_out_t& message) throw(std::runtime_error) __attribute__((warn_unused_result));
@@ -87,10 +84,11 @@ public:
     //! Send either raw data or string
     bool send(const char* data, const uint32_t length) throw(std::runtime_error) __attribute__((warn_unused_result));
 
-    //! Return the first datagram of the first message
-    bool peek(datagram_in_t &head) const;
-
-    int32_t getMaximumMessageSize() const;
+    /**
+     * Return the first datagram of the message
+     * @note This might block if there aren't any messages in the queue
+     */
+    bool peek(datagram_in_t &head);
 
     uint16_t get_listening_port() const;
 
@@ -107,16 +105,16 @@ public:
     //! Reads as much data as possible without blocking
     std::vector<message_in_t> receive_all(bool blocking);
 
-    //! Pull new messages from the socket onto our stack
-    bool pull_messages(bool blocking) throw (std::runtime_error);
-
 protected:
     //! Construct as a child socket
     //! Is only called by Socket::accept
     Socket(int fd, uint16_t port);
 
 private:
-    struct __attribute__((packed))
+    //! Pull new messages from the socket onto our stack
+    bool pull_messages(bool bocking) throw (std::runtime_error);
+
+   struct __attribute__((packed))
     header_t
     {
         header_t(uint32_t length_, bool has_more_)
@@ -181,6 +179,9 @@ private:
     uint16_t m_port;
     bool m_is_ipv6;
 
+    //! Is the socket set to blocking?
+    bool m_blocking;
+
     //! Filedescriptor
     int m_fd;
 
@@ -207,11 +208,6 @@ inline int32_t Socket::get_fileno() const
     return m_fd;
 }
 
-inline int32_t Socket::getMaximumMessageSize() const
-{
-    return -1;
-}
-
 inline bool Socket::is_connected() const
 {
     return is_valid() && !m_listening;
@@ -234,14 +230,17 @@ inline bool Socket::is_valid() const
 
 inline bool Socket::listen(const std::string& name, uint16_t port, uint32_t backlog)
 {
-    Address addr = resolveUrl(name, port);
+    Address addr = resolve_URL(name, port);
     return listen(addr, backlog);
 }
 
-inline bool Socket::receive(char *&data, uint32_t &length, bool block) throw(std::runtime_error)
+inline bool Socket::receive(char *&data, uint32_t &length) throw(std::runtime_error)
 {
     message_in_t message;
-    bool result = receive(message, block);
+    bool result = receive(message);
+
+    if(!result)
+        return false;
 
     if(message.size() > 1)
         throw std::runtime_error("Message has more than one datagram!");

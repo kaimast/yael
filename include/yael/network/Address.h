@@ -100,7 +100,7 @@ struct Address
 /**
  * @brief Instantiate a network Address by URL instead of IP
  */
-Address resolveUrl(std::string address, uint16_t portNumber, bool IPv6_ = false);
+Address resolve_URL(std::string address, uint16_t port_number, bool IPv6 = false);
 
 }
 }
