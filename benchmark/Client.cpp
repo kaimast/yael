@@ -13,9 +13,9 @@ public:
     Client()
     {}
 
-    bool init()
+    bool init(const std::string &name)
     {
-        bool res = m_socket.connect(network::resolve_URL("localhost", BENCHMARK_PORT));
+        bool res = m_socket.connect(network::resolve_URL(name, BENCHMARK_PORT));
         m_socket.set_blocking(true);
 
         return res;
@@ -81,11 +81,17 @@ private:
 };
 
 
-int main()
+int main(int argc, char *argv[])
 {
     Client client;
 
-    if(!client.init())
+    if(argc < 2)
+    {
+        std::cerr << "No server name supplied" << std::endl;
+        return -1;
+    }
+
+    if(!client.init(argv[1]))
     {
         std::cerr << "Failed to connect to Server" << std::endl;
         return -1;

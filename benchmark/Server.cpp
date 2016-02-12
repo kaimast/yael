@@ -67,13 +67,13 @@ public:
         EventLoop::destroy();
     }
 
-    bool init()
+    bool init(const std::string& name)
     {
         EventLoop::initialize();
 
         auto socket = new network::Socket();
 
-        bool res = socket->listen("localhost", BENCHMARK_PORT, 100);
+        bool res = socket->listen(name, BENCHMARK_PORT, 100);
 
         if(!res)
         {
@@ -105,11 +105,17 @@ protected:
     }
 };
 
-int main()
+int main(int argc, char* argv[])
 {
     Server server;
 
-    if(!server.init())
+    if(argc < 2)
+    {
+        std::cerr << "No name to listen on supplied!" << std::endl;
+        return -1;
+    }
+
+    if(!server.init(argv[1]))
         return -1;
 
     server.run();

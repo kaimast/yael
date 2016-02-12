@@ -6,7 +6,7 @@ from time import sleep
 
 NUM_CLIENTS=50
 
-server = Popen(["./yael-benchmark-server"])
+server = Popen(["./yael-benchmark-server", "localhost"])
 
 sleep(0.1)
 
@@ -14,7 +14,7 @@ clients = []
 latencies = []
 
 for _ in range(NUM_CLIENTS):
-    c = Popen(["./yael-benchmark-client"], stdout=PIPE)
+    c = Popen(["./yael-benchmark-client", "localhost"], stdout=PIPE)
     clients.append(c)
 
 for c in clients:

@@ -23,6 +23,12 @@ public:
         SocketListener::set_socket(socket);
         return true;
     }
+
+protected:
+    void update() override
+    {
+       // Call accept() on the socket here...
+    }
 };
 ```
 
