@@ -2,6 +2,7 @@
 
 #include <mutex>
 #include <memory>
+#include <chrono>
 #include <glog/logging.h>
 
 #include "network/Socket.h"
@@ -58,6 +59,9 @@ public:
      */
     void unlock();
 
+    /**
+     * Get the mutex associated with this object
+     */
     std::mutex& mutex();
 
     /**
@@ -71,6 +75,14 @@ public:
      */
     bool is_valid() const;
 
+    const std::chrono::system_clock::time_point& last_update() const;
+
+    /**
+     * @brief mark socketlistener as updated
+     * @note this should only be called by EventLoop
+     */
+    void mark_upated();
+
 protected:
     network::Socket& socket()
     {
@@ -83,6 +95,8 @@ private:
     std::mutex m_mutex;
 
     int32_t m_fileno;
+
+    std::chrono::system_clock::time_point m_last_update;
 };
 
 inline bool SocketListener::try_lock()
@@ -108,5 +122,16 @@ inline void SocketListener::set_socket(network::Socket *socket) throw(std::runti
 {
     set_socket(std::unique_ptr<network::Socket>(socket));
 }
+
+inline const std::chrono::system_clock::time_point& SocketListener::last_update() const
+{
+    return m_last_update;
+}
+
+inline void SocketListener::mark_upated()
+{
+    m_last_update = std::chrono::system_clock::now();
+}
+
 }
 

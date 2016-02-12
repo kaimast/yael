@@ -1,9 +1,13 @@
 #include "EventLoop.h"
 #include "SocketListener.h"
 
+#include <assert.h>
 #include <sys/epoll.h>
 
-constexpr int32_t MAX_EVENTS = 1;
+// How many events can one thread see at most
+// Increasing this value might make the scheduler fairer but also slower
+constexpr int32_t MAX_EVENTS = 100;
+
 constexpr int32_t EPOLL_FLAGS = EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLONESHOT;
 
 using namespace yael;
@@ -43,6 +47,53 @@ void EventLoop::stop()
 
 void EventLoop::update()
 {
+    SocketListener *listener = get_next_event();
+
+    if(!listener)
+        return;
+
+    listener->mark_upated();
+    listener->update();
+
+    if(!listener->is_valid())
+    {
+        std::lock_guard<std::mutex> lock_guard(m_socket_listeners_mutex);
+
+        auto it = m_socket_listeners.find(listener->get_fileno());
+        m_socket_listeners.erase(it);
+
+        delete listener;
+    }
+    else
+    {
+        //IMPORTANT unlock before you register with epoll. otherwise events could be discarded because of ONESHOT
+        listener->unlock();
+        register_socket(listener->get_fileno());
+    }
+}
+
+SocketListener* EventLoop::get_next_event()
+{
+    std::unique_lock<std::mutex> event_lock(m_queued_events_mutex);
+
+    if(m_queued_events.size() == 0)
+        pull_more_events();
+
+    if(m_queued_events.size() > 0)
+    {
+        auto it = m_queued_events.begin();
+        auto listener = it->second;
+
+        m_queued_events.erase(it);
+
+        return listener;
+    }
+    else
+        return nullptr;
+}
+
+void EventLoop::pull_more_events()
+{
     epoll_event events[MAX_EVENTS];
 
     std::unique_lock<std::mutex> epoll_lock(m_epoll_mutex);
@@ -66,8 +117,6 @@ void EventLoop::update()
 
     DLOG(INFO) << "Got " << nfds << " new events from epoll";
 
-    std::vector<SocketListener*> listeners;
-
     std::unique_lock<std::mutex> socket_listeners_lock(m_socket_listeners_mutex);
     epoll_lock.unlock();
 
@@ -86,53 +135,31 @@ void EventLoop::update()
 
         // Ignore if other thread is already handling it.
         if(listener->try_lock())
-            listeners.push_back(listener);
+        {
+            // Assumin m_queued_events is already locked
+            auto time = listener->last_update().time_since_epoch().count();
+            m_queued_events.insert({time, listener});
+        }
         else
         {
             DLOG(INFO) << "Discarded event as object was locked";
-
-            // Register again with epoll so other threads can receive data from it
-            struct epoll_event ev;
-            ev.events = EPOLL_FLAGS;
-            ev.data.fd = fd;
-
-            int res = epoll_ctl(m_epoll_fd, EPOLL_CTL_MOD, fd, &ev);
-            if(res != 0 && errno != EBADF) // BADF might mean that the listener was just closed
-                 LOG(FATAL) << "epoll_ctl() failed: " << strerror(errno);
+            register_socket(listener->get_fileno());
         }
     }
 
     socket_listeners_lock.unlock();
+}
 
-    for(auto it = listeners.begin(); it != listeners.end(); ++it)
-    {
-        SocketListener* listener = (*it);
-        listener->update();
+void EventLoop::register_socket(int32_t fileno)
+{
+    // Register again with epoll so other threads can receive data from it
+    struct epoll_event ev;
+    ev.events = EPOLL_FLAGS;
+    ev.data.fd = fileno;
 
-        if(!listener->is_valid())
-        {
-            std::lock_guard<std::mutex> lock_guard(m_socket_listeners_mutex);
-
-            auto it2 = m_socket_listeners.find(listener->get_fileno());
-            m_socket_listeners.erase(it2);
-
-            delete listener;
-        }
-        else
-        {
-            //IMPORTANT unlock before you register with epoll. otherwise events could be discarded because of ONESHOT
-            listener->unlock();
-
-            // Register again with epoll so other threads can receive data from it
-            struct epoll_event ev;
-            ev.events = EPOLL_FLAGS;
-            ev.data.fd = listener->get_fileno();
-
-            int res = epoll_ctl(m_epoll_fd, EPOLL_CTL_MOD, listener->get_fileno(), &ev);
-            if(res != 0 && errno != EBADF) // BADF might mean that the listener was just closed
-                 LOG(FATAL) << "epoll_ctl() failed: " << strerror(errno);
-        }
-    }
+    int res = epoll_ctl(m_epoll_fd, EPOLL_CTL_MOD, fileno, &ev);
+    if(res != 0 && errno != EBADF) // BADF might mean that the listener was just closed
+        LOG(FATAL) << "epoll_ctl() failed: " << strerror(errno);
 }
 
 void EventLoop::register_socket_listener(int32_t fileno, SocketListener* listener)

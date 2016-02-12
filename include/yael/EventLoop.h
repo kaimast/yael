@@ -2,6 +2,7 @@
 
 #include <thread>
 #include <stack>
+#include <map>
 #include <unordered_map>
 #include <mutex>
 #include <stdint.h>
@@ -68,6 +69,15 @@ public:
 private:
     void thread_loop();
 
+    void register_socket(int32_t fileno);
+
+    SocketListener* get_next_event();
+
+    /**
+     * Pull new events from epoll. This should only be called by get_next_event
+     */
+    void pull_more_events();
+
     /**
      * Constructor only called by initialize()
      */
@@ -80,9 +90,11 @@ private:
 
     std::mutex m_epoll_mutex;
     std::mutex m_socket_listeners_mutex;
+    std::mutex m_queued_events_mutex;
 
     std::stack<std::thread> m_threads;
 
+    std::multimap<uint32_t, SocketListener*> m_queued_events;
     std::unordered_map<int32_t, SocketListener*> m_socket_listeners;
 
     const int32_t m_epoll_fd;

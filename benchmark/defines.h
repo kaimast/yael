@@ -5,4 +5,4 @@ constexpr uint8_t MSG_TYPE_PONG = 2;
 
 constexpr uint32_t SERVER_DELAY = 5;
 
-constexpr uint32_t NUM_ROUND_TRIPS = 1000;
+constexpr uint32_t NUM_ROUND_TRIPS = 100;

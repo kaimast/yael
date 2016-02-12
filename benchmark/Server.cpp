@@ -32,7 +32,7 @@ protected:
 
         if(msg == MSG_TYPE_PING)
         {
-            LOG(INFO) << "Recieved ping!";
+            DLOG(INFO) << "Recieved ping!";
 
             std::chrono::milliseconds dur(SERVER_DELAY);
             std::this_thread::sleep_for(dur);

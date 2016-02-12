@@ -4,18 +4,18 @@
 using namespace yael;
 
 SocketListener::SocketListener()
-    : m_socket(nullptr), m_fileno(-1)
+    : m_socket(nullptr), m_fileno(-1), m_last_update()
 {
 }
 
 SocketListener::SocketListener(network::Socket *socket)
-    : m_socket(nullptr), m_fileno(-1)
+    : m_socket(nullptr), m_fileno(-1), m_last_update()
 {
     set_socket(socket);
 }
 
 SocketListener::SocketListener(std::unique_ptr<network::Socket> &&socket)
-    : m_socket(nullptr), m_fileno(-1)
+    : m_socket(nullptr), m_fileno(-1), m_last_update()
 {
     set_socket(std::move(socket));
 }
