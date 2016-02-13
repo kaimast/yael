@@ -2,9 +2,9 @@
 
 #include <thread>
 #include <stack>
-#include <map>
 #include <unordered_map>
 #include <mutex>
+#include <list>
 #include <stdint.h>
 
 namespace yael
@@ -94,7 +94,7 @@ private:
 
     std::stack<std::thread> m_threads;
 
-    std::multimap<uint32_t, SocketListener*> m_queued_events;
+    std::list<SocketListener*> m_queued_events;
     std::unordered_map<int32_t, SocketListener*> m_socket_listeners;
 
     const int32_t m_epoll_fd;

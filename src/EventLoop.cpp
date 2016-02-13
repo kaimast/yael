@@ -52,7 +52,6 @@ void EventLoop::update()
     if(!listener)
         return;
 
-    listener->mark_upated();
     listener->update();
 
     if(!listener->is_valid())
@@ -82,8 +81,7 @@ SocketListener* EventLoop::get_next_event()
     if(m_queued_events.size() > 0)
     {
         auto it = m_queued_events.begin();
-        auto listener = it->second;
-
+        auto listener = *it;
         m_queued_events.erase(it);
 
         return listener;
@@ -137,8 +135,7 @@ void EventLoop::pull_more_events()
         if(listener->try_lock())
         {
             // Assumin m_queued_events is already locked
-            auto time = listener->last_update().time_since_epoch().count();
-            m_queued_events.insert({time, listener});
+            m_queued_events.push_back(listener);
         }
         else
         {
