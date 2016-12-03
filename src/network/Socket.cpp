@@ -464,8 +464,11 @@ bool Socket::receive_data(bool retry) throw (std::runtime_error)
     }
 }
 
-std::vector<Socket::message_in_t> Socket::receive_all(bool blocking)
+std::vector<Socket::message_in_t> Socket::receive_all()
 {
+    if(!is_blocking())
+        throw std::runtime_error("Cannot call receive_all on blocking socket");
+
     std::vector<message_in_t> result;
     message_in_t msg;
 
@@ -569,6 +572,24 @@ bool Socket::send(const message_out_t& message) throw(std::runtime_error)
     }
 
     return true;
+}
+
+std::vector<Socket*> Socket::accept_all()
+{
+    if(is_blocking())
+        throw std::runtime_error("Cannot call accept all on blocking socket");
+
+    std::vector<Socket*> result;
+
+    while(true)
+    {
+        auto sock = accept();
+
+        if(sock)
+            result.push_back(sock);
+        else
+            return result;
+    }
 }
 
 }

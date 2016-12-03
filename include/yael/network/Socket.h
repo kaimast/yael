@@ -7,7 +7,7 @@
 #include <tuple>
 #include <stdexcept>
 
-#include "network/Address.h"
+#include <yael/network/Address.h>
 
 namespace yael
 {
@@ -96,6 +96,8 @@ public:
 
     bool is_listening() const;
 
+    bool is_blocking() const;
+
     const Address& get_client_address() const;
 
     void set_blocking(bool blocking);
@@ -103,7 +105,9 @@ public:
     int32_t get_fileno() const;
 
     //! Reads as much data as possible without blocking
-    std::vector<message_in_t> receive_all(bool blocking);
+    std::vector<message_in_t> receive_all();
+
+    std::vector<Socket*> accept_all();
 
 protected:
     //! Construct as a child socket
@@ -216,6 +220,11 @@ inline bool Socket::is_connected() const
 inline bool Socket::is_listening() const
 {
     return is_valid() && m_listening;
+}
+
+inline bool Socket::is_blocking() const
+{
+    return m_blocking;
 }
 
 inline bool Socket::has_messages() const

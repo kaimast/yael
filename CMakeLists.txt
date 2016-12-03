@@ -18,7 +18,7 @@ set(YAEL_TESTS
     test/EventLoopTest.h test/EventLoopTest.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${YAEL_SOURCES} ${YAEL_INCLUDES})
-include_directories(. ./include/yael)
+include_directories(. ./include ./include/yael)
 
 add_executable(${PROJECT_NAME}-test ${YAEL_SOURCES} ${YAEL_TESTS})
 
