@@ -466,14 +466,24 @@ bool Socket::receive_data(bool retry) throw (std::runtime_error)
 
 std::vector<Socket::message_in_t> Socket::receive_all()
 {
-    if(!is_blocking())
-        throw std::runtime_error("Cannot call receive_all on blocking socket");
-
     std::vector<message_in_t> result;
-    message_in_t msg;
 
+    if(!has_messages())
+    {
+        pull_messages(m_blocking);
+    }
+
+    /*
     while(receive(msg))
     {
+        result.push_back(msg);
+    }*/
+
+    while(has_messages())
+    {
+        message_in_t msg;
+        auto res = get_message(msg);
+        assert(res);
         result.push_back(msg);
     }
 
@@ -507,7 +517,7 @@ bool Socket::receive(message_in_t &message) throw (std::runtime_error)
         }
     }
 
-    // There might still be messges on the stack
+    // There might still be messages on the stack
     return get_message(message);
 }
 

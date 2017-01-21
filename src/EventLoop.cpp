@@ -6,7 +6,7 @@
 
 // How many events can one thread see at most
 // Increasing this value might make the scheduler fairer but also slower
-constexpr int32_t MAX_EVENTS = 100;
+constexpr int32_t MAX_EVENTS = 1;
 
 constexpr int32_t EPOLL_FLAGS = EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLONESHOT;
 
