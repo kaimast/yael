@@ -90,7 +90,11 @@ public:
      */
     bool peek(datagram_in_t &head);
 
-    uint16_t get_listening_port() const;
+    /**
+     * Either the listening port or the connection port
+     * (depending on the socket state)
+     */
+    uint16_t port() const;
 
     bool is_connected() const;
 
@@ -112,7 +116,7 @@ public:
 protected:
     //! Construct as a child socket
     //! Is only called by Socket::accept
-    Socket(int fd, uint16_t port);
+    Socket(int fd);
 
 private:
     //! Pull new messages from the socket onto our stack
@@ -163,9 +167,11 @@ private:
     //! Only used by pullMessages
     bool receive_data(bool retry) throw (std::runtime_error);
 
-    //! (Re)calculate mClientAddress
+    //! (Re)calculate m_client_address
     //! Called by constructor and connect()
     void calculate_client_address();
+
+    void update_port_number();
 
     //! Initialize and bind the socket
     //! Only used by connect() and listen()

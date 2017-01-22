@@ -7,7 +7,7 @@ TEST_F(SocketTest, listening)
     EXPECT_TRUE(m_socket1.is_listening());
     EXPECT_TRUE(m_socket1.is_valid());
     EXPECT_FALSE(m_socket1.is_connected());
-    EXPECT_EQ(62123, m_socket1.get_listening_port());
+    EXPECT_EQ(62123, m_socket1.port());
 }
 
 TEST_F(SocketTest, connected)
@@ -15,6 +15,7 @@ TEST_F(SocketTest, connected)
     EXPECT_TRUE(m_socket2.is_valid());
     EXPECT_TRUE(m_socket2.is_connected());
     EXPECT_TRUE(m_peer_socket != nullptr);
+    EXPECT_TRUE(m_socket1.port() != m_socket2.port());
 }
 
 TEST_F(SocketTest, send_one_way)

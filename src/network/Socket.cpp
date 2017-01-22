@@ -33,11 +33,12 @@ Socket::Socket()
 {
 }
 
-Socket::Socket(int fd,  uint16_t port)
-    : m_messages(), m_port(port), m_is_ipv6(false), m_blocking(true), m_fd(fd),
+Socket::Socket(int fd)
+    : m_messages(), m_port(0), m_is_ipv6(false), m_blocking(true), m_fd(fd),
       m_buffer_pos(-1), m_buffer_size(0), m_listening(false), m_client_address(),
       m_has_current_message(false)
 {
+    update_port_number();
     calculate_client_address();
 }
 
@@ -78,6 +79,24 @@ bool Socket::create_fd()
     return true;
 }
 
+void Socket::update_port_number()
+{
+    if(m_is_ipv6)
+    {
+        struct sockaddr_in6 addr;
+        socklen_t addrlen = sizeof(addr);
+        getsockname(m_fd, reinterpret_cast<sockaddr*>(&addr), &addrlen);
+        m_port = htons(addr.sin6_port);
+    }
+    else
+    {
+        struct sockaddr_in addr;
+        socklen_t addrlen = sizeof(addr);
+        getsockname(m_fd, reinterpret_cast<sockaddr*>(&addr), &addrlen);
+        m_port = htons(addr.sin_port);
+    }
+}
+
 bool Socket::bind_socket(const Address& address)
 {
     m_is_ipv6 = address.IPv6;
@@ -97,12 +116,6 @@ bool Socket::bind_socket(const Address& address)
         {
             return false;
         }
-
-        // set correct port value
-        struct sockaddr_in6 addr;
-        socklen_t addrlen = sizeof(addr);
-        getsockname(m_fd, reinterpret_cast<sockaddr*>(&addr), &addrlen);
-        m_port = htons(addr.sin6_port);
     }
     else
     {
@@ -113,14 +126,9 @@ bool Socket::bind_socket(const Address& address)
         {
             return false;
         }
+   }
 
-        // set correct port value
-        struct sockaddr_in addr;
-        socklen_t addrlen = sizeof(addr);
-        getsockname(m_fd, reinterpret_cast<sockaddr*>(&addr), &addrlen);
-        m_port = htons(addr.sin_port);
-    }
-
+    update_port_number();
     return true;
 }
 
@@ -142,11 +150,11 @@ bool Socket::listen(const Address& address, uint32_t backlog)
     }
 }
 
-uint16_t Socket::get_listening_port() const
+uint16_t Socket::port() const
 {
     if(!is_valid())
     {
-        throw std::runtime_error("Cannot get listening port of non-existant socket");
+        throw std::runtime_error("Cannot get port of non-existant socket");
     }
 
     return m_port;
@@ -245,8 +253,7 @@ Socket* Socket::accept()
     }
     else
     {
-        Socket* sock = new Socket(s, m_port);
-        return sock;
+        return new Socket(s);
     }
 }
 
