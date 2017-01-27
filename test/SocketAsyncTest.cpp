@@ -7,7 +7,7 @@ const uint32_t data_len = 50 * 1000 * 1000;
 const Address addr = resolve_URL("localhost", 62123);
 
 static uint32_t receive_len = 0;
-static char* data_received = nullptr;
+static uint8_t* data_received = nullptr;
 
 static void receive_data()
 {
@@ -33,7 +33,7 @@ TEST(SocketAsyncTest, send_large_chunk)
 
     Socket *peer_socket = socket.accept();
 
-    char *data = new char[data_len];
+    uint8_t *data = new uint8_t[data_len];
 
     bool sent = peer_socket->send(data, data_len);
     ASSERT_TRUE(sent);

@@ -29,14 +29,14 @@ namespace network
 Socket::Socket()
     : m_messages(), m_port(0), m_is_ipv6(false), m_blocking(true), m_fd(-1),
       m_buffer_pos(-1), m_buffer_size(0), m_listening(false), m_client_address(),
-      m_has_current_message(false)
+      m_has_current_message(false), m_current_message()
 {
 }
 
 Socket::Socket(int fd)
     : m_messages(), m_port(0), m_is_ipv6(false), m_blocking(true), m_fd(fd),
       m_buffer_pos(-1), m_buffer_size(0), m_listening(false), m_client_address(),
-      m_has_current_message(false)
+      m_has_current_message(false), m_current_message()
 {
     update_port_number();
     calculate_client_address();
@@ -298,7 +298,8 @@ bool Socket::get_message(message_in_t& message)
     }
 
     auto& it = m_messages.front();
-    message = it.datagrams;
+    message.data = it.data;
+    message.length = it.length;
 
     m_messages.pop_front();
     return true;
@@ -345,18 +346,18 @@ bool Socket::pull_messages(bool blocking) throw (std::runtime_error)
         m_has_current_message = false;
     }
     else
-        assert(msg.current_header.length == 0);
+        assert(msg.length == 0);
 
     // We need to read the header of the next datagram
-    if(msg.read_pos == 0 && msg.current_header.length == 0)
+    if(msg.read_pos == 0 && msg.read_pos == 0)
     {
-        const size_t header_size = sizeof(header_t);
+        const size_t header_size = sizeof(msg.length);
         uint32_t header_pos = 0;
 
         while((header_pos < header_size) && is_valid())
         {
             int32_t readlength = std::min<int32_t>(header_size - header_pos, m_buffer_size - m_buffer_pos);
-            mempcpy(reinterpret_cast<char*>(&msg.current_header)+header_pos, &m_buffer[m_buffer_pos], readlength);
+            mempcpy(reinterpret_cast<char*>(&msg.length)+header_pos, &m_buffer[m_buffer_pos], readlength);
 
             assert(readlength > 0);
             header_pos += readlength;
@@ -375,39 +376,24 @@ bool Socket::pull_messages(bool blocking) throw (std::runtime_error)
 
         if(is_valid())
         {
-            datagram_in_t datagram;
-            datagram.length = msg.current_header.length;
-
-            datagram.data = new char[datagram.length];
-            msg.datagrams.push_back(datagram);
+            msg.data = new uint8_t[msg.length];
         }
         else
             return false;
     }
 
-    auto& datagram = msg.datagrams[msg.datagram_pos];
-
-    const int32_t readlength = min(datagram.length - msg.read_pos, m_buffer_size - m_buffer_pos);
+    const int32_t readlength = min(msg.length - msg.read_pos, m_buffer_size - m_buffer_pos);
     assert(readlength >= 0);
 
-    mempcpy(&datagram.data[msg.read_pos], &m_buffer[m_buffer_pos], readlength);
+    mempcpy(&msg.data[msg.read_pos], &m_buffer[m_buffer_pos], readlength);
 
     msg.read_pos += readlength;
     m_buffer_pos += readlength;
 
-    if(msg.read_pos >= datagram.length)
+    if(msg.read_pos >= msg.length)
     {
-        assert(msg.read_pos == datagram.length);
-        msg.datagram_pos += 1;
-        msg.read_pos = 0;
-        msg.current_header.length = 0;
-
-        // We received all datagrams of this message
-        if(!msg.current_header.has_more)
-        {
-            m_messages.push_back(msg);
-            received_full_msg = true;
-        }
+        m_messages.push_back(msg);
+        received_full_msg = true;
     }
 
     if(!received_full_msg)
@@ -425,8 +411,10 @@ bool Socket::pull_messages(bool blocking) throw (std::runtime_error)
         return received_full_msg;
     }
     else
+    {
         // read rest of buffer
         return pull_messages(false) || received_full_msg;
+    }
 }
 
 bool Socket::receive_data(bool retry) throw (std::runtime_error)
@@ -497,21 +485,6 @@ std::vector<Socket::message_in_t> Socket::receive_all()
     return result;
 }
 
-bool Socket::peek(datagram_in_t &head)
-{
-    if(!has_messages())
-    {
-        if(!m_blocking)
-            return false;
-
-        while(!has_messages())
-            pull_messages(true);
-    }
-
-    head = m_messages.front().datagrams[0];
-    return true;
-}
-
 bool Socket::receive(message_in_t &message) throw (std::runtime_error)
 {
     if(!has_messages() && is_connected())
@@ -537,56 +510,51 @@ bool Socket::send(const message_out_t& message) throw(std::runtime_error)
 
     size_t pos = 0;
 
-    for(auto datagram : message)
+    uint32_t sent = 0;
+    int32_t s = 0;
+
+    const size_t length = message.length;
+    const uint8_t* data = message.data;
+
+    const uint32_t header = length;
+    const size_t header_size = sizeof(header);
+
+    auto written = ::write(m_fd, &header, header_size);
+    if(written != header_size)
     {
-        const bool at_end = (pos+1 >= message.size());
+        if(errno != ECONNRESET && errno != EPIPE)
+            throw std::runtime_error(strerror(errno));
 
-        uint32_t sent = 0;
-        int32_t s = 0;
+        close();
+        return false;
+    }
 
-        const size_t length = datagram.length;
-        const char* data = datagram.data;
+    while(sent < length)
+    {
+        s = ::write(m_fd, data+sent, length-sent);
 
-        const header_t header = header_t{static_cast<uint32_t>(length), !at_end};
-        const size_t header_size = sizeof(header);
-
-        auto written = ::write(m_fd, &header, header_size);
-        if(written != header_size)
+        if(s > 0)
+            sent += s;
+        else if(s == 0)
         {
-            if(errno != ECONNRESET && errno != EPIPE)
-                throw std::runtime_error(strerror(errno));
-
             close();
             return false;
         }
-
-        while(sent < length)
+        else if(s < 0)
         {
-            s = ::write(m_fd, data+sent, length-sent);
-
-            if(s > 0)
-                sent += s;
-            else if(s == 0)
+            if(errno == EAGAIN || errno == EWOULDBLOCK)
+                continue;
+            else if(errno != ECONNRESET && errno != EPIPE)
+                throw std::runtime_error(strerror(errno));
+            else
             {
                 close();
                 return false;
             }
-            else if(s < 0)
-            {
-                if(errno == EAGAIN || errno == EWOULDBLOCK)
-                    continue;
-                else if(errno != ECONNRESET && errno != EPIPE)
-                    throw std::runtime_error(strerror(errno));
-                else
-                {
-                    close();
-                    return false;
-                }
-            }
         }
-
-        pos++;
     }
+
+    pos++;
 
     return true;
 }

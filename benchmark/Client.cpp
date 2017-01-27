@@ -47,7 +47,7 @@ public:
 protected:
     void receive_pong()
     {
-        char *data = nullptr;
+        uint8_t *data = nullptr;
         uint32_t len = 0;
 
         bool res = m_socket.receive(data, len);
@@ -70,7 +70,7 @@ protected:
 private:
     void send_ping()
     {
-        bool res = m_socket.send(reinterpret_cast<const char*>(&MSG_TYPE_PING), sizeof(MSG_TYPE_PING));
+        bool res = m_socket.send(reinterpret_cast<const uint8_t*>(&MSG_TYPE_PING), sizeof(MSG_TYPE_PING));
 
         if(!res)
             throw std::runtime_error("Failed to send data!");

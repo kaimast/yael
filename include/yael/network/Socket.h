@@ -23,25 +23,21 @@ class Socket
 public:
     static constexpr uint16_t ANY_PORT = 0;
 
-    struct datagram_out_t
+    struct message_out_t
     {
-        const char *data;
-        const uint32_t length;
+        const uint8_t *data = nullptr;
+        const uint32_t length = 0;
     };
 
-    struct datagram_in_t
+    struct message_in_t
     {
-        char *data;
+        uint8_t *data;
         uint32_t length;
     };
 
-    typedef std::vector<datagram_out_t> message_out_t;
-    typedef std::vector<datagram_in_t> message_in_t;
-
     static void free_message(message_in_t& message)
     {
-        for(auto datagram: message)
-            delete []datagram.data;
+        delete []message.data;
     }
 
     Socket(const Socket& other) = delete;
@@ -76,19 +72,13 @@ public:
 
     //! Receive data
     bool receive(message_in_t& message) throw (std::runtime_error) __attribute__((warn_unused_result));
-    bool receive(char*& data, uint32_t& length) throw (std::runtime_error) __attribute__((warn_unused_result));
+    bool receive(uint8_t*& data, uint32_t& length) throw (std::runtime_error) __attribute__((warn_unused_result));
 
     //! Send a message consisting of a list of datagrams
     bool send(const message_out_t& message) throw(std::runtime_error) __attribute__((warn_unused_result));
 
     //! Send either raw data or string
-    bool send(const char* data, const uint32_t length) throw(std::runtime_error) __attribute__((warn_unused_result));
-
-    /**
-     * Return the first datagram of the message
-     * @note This might block if there aren't any messages in the queue
-     */
-    bool peek(datagram_in_t &head);
+    bool send(const uint8_t* data, const uint32_t length) throw(std::runtime_error) __attribute__((warn_unused_result));
 
     /**
      * Either the listening port or the connection port
@@ -122,38 +112,21 @@ private:
     //! Pull new messages from the socket onto our stack
     bool pull_messages(bool bocking) throw (std::runtime_error);
 
-   struct __attribute__((packed))
-    header_t
-    {
-        header_t(uint32_t length_, bool has_more_)
-          : length(length_), has_more(has_more_)
-        {}
-
-        header_t(const header_t &other)
-          : length(other.length), has_more(other.has_more)
-        {}
-
-        uint32_t length;
-        bool has_more;
-    };
-
     struct internal_message_in_t
     {
         internal_message_in_t()
-            : datagrams(), current_header(0, false), datagram_pos(0), read_pos(0)
-        {}
-
-        internal_message_in_t(const internal_message_in_t& other)
-            : datagrams(other.datagrams), current_header(other.current_header), datagram_pos(other.datagram_pos), read_pos(other.read_pos)
+            : length(0), read_pos(0), data(nullptr)
         {
         }
 
-        std::vector<datagram_in_t> datagrams;
+        internal_message_in_t(const internal_message_in_t &other)
+            : length(other.length), read_pos(other.read_pos), data(other.data)
+        {
+        }
 
-        header_t current_header;
-
-        uint32_t datagram_pos;
+        uint32_t length;
         uint32_t read_pos;
+        uint8_t  *data;
     };
 
     bool create_fd();
@@ -249,7 +222,7 @@ inline bool Socket::listen(const std::string& name, uint16_t port, uint32_t back
     return listen(addr, backlog);
 }
 
-inline bool Socket::receive(char *&data, uint32_t &length) throw(std::runtime_error)
+inline bool Socket::receive(uint8_t *&data, uint32_t &length) throw(std::runtime_error)
 {
     message_in_t message;
     bool result = receive(message);
@@ -257,19 +230,16 @@ inline bool Socket::receive(char *&data, uint32_t &length) throw(std::runtime_er
     if(!result)
         return false;
 
-    if(message.size() > 1)
-        throw std::runtime_error("Message has more than one datagram!");
-
-    data = message[0].data;
-    length = message[0].length;
+    data = message.data;
+    length = message.length;
 
     return result;
 }
 
-inline bool Socket::send(const char *data, const uint32_t length) throw(std::runtime_error)
+inline bool Socket::send(const uint8_t *data, const uint32_t length) throw(std::runtime_error)
 {
-    datagram_out_t datagram = {data, length};
-    return send( {datagram} );
+    message_out_t msg = {data, length};
+    return send(msg);
 }
 
 }

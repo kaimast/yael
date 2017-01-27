@@ -19,7 +19,7 @@ public:
 protected:
     void update() override
     {
-        char *data = nullptr;
+        uint8_t *data = nullptr;
         uint32_t len = 0;
 
         bool res = socket().receive(data, len);
@@ -46,7 +46,7 @@ protected:
 private:
     void send_pong()
     {
-        bool res = socket().send(reinterpret_cast<const char*>(&MSG_TYPE_PONG), sizeof(MSG_TYPE_PONG));
+        bool res = socket().send(reinterpret_cast<const uint8_t*>(&MSG_TYPE_PONG), sizeof(MSG_TYPE_PONG));
 
         if(!res)
             throw std::runtime_error("Failed to send data!");
