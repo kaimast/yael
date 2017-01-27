@@ -16,9 +16,14 @@ public:
     bool init(const std::string &name)
     {
         bool res = m_socket.connect(network::resolve_URL(name, BENCHMARK_PORT));
-        m_socket.set_blocking(true);
 
-        return res;
+        if(res)
+        {
+            m_socket.set_blocking(true);
+            return true;
+        }
+        else
+            return false;
     }
 
     void run()

@@ -338,18 +338,21 @@ bool Socket::pull_messages(bool blocking) throw (std::runtime_error)
             return false;
     }
 
+    assert(m_buffer_pos >= 0 && m_buffer_size > 0 && static_cast<uint32_t>(m_buffer_pos) < m_buffer_size);
+
     internal_message_in_t msg;
 
     if(m_has_current_message)
     {
         msg = m_current_message;
         m_has_current_message = false;
+        assert(msg.length > 0);
     }
     else
         assert(msg.length == 0);
 
     // We need to read the header of the next datagram
-    if(msg.read_pos == 0 && msg.read_pos == 0)
+    if(msg.read_pos == 0 && msg.read_pos == 0 && msg.length == 0)
     {
         const size_t header_size = sizeof(msg.length);
         uint32_t header_pos = 0;
@@ -357,6 +360,8 @@ bool Socket::pull_messages(bool blocking) throw (std::runtime_error)
         while((header_pos < header_size) && is_valid())
         {
             int32_t readlength = std::min<int32_t>(header_size - header_pos, m_buffer_size - m_buffer_pos);
+
+            assert(readlength > 0);
             mempcpy(reinterpret_cast<char*>(&msg.length)+header_pos, &m_buffer[m_buffer_pos], readlength);
 
             assert(readlength > 0);
@@ -385,16 +390,21 @@ bool Socket::pull_messages(bool blocking) throw (std::runtime_error)
     const int32_t readlength = min(msg.length - msg.read_pos, m_buffer_size - m_buffer_pos);
     assert(readlength >= 0);
 
-    mempcpy(&msg.data[msg.read_pos], &m_buffer[m_buffer_pos], readlength);
+    if(readlength > 0)
+    {
+        mempcpy(&msg.data[msg.read_pos], &m_buffer[m_buffer_pos], readlength);
 
-    msg.read_pos += readlength;
-    m_buffer_pos += readlength;
+        msg.read_pos += readlength;
+        m_buffer_pos += readlength;
+    }
 
     if(msg.read_pos >= msg.length)
     {
         m_messages.push_back(msg);
         received_full_msg = true;
-    }
+
+        m_has_current_message = false;
+   }
 
     if(!received_full_msg)
     {
@@ -417,10 +427,10 @@ bool Socket::pull_messages(bool blocking) throw (std::runtime_error)
     }
 }
 
-bool Socket::receive_data(bool retry) throw (std::runtime_error)
+bool Socket::receive_data(bool blocking) throw (std::runtime_error)
 {
     memset(&m_buffer[0], 0, BUFFER_SIZE);
-    int32_t x = ::recv(m_fd, m_buffer, BUFFER_SIZE, retry ? 0: MSG_DONTWAIT);
+    int32_t x = ::recv(m_fd, m_buffer, BUFFER_SIZE, blocking ? 0: MSG_DONTWAIT);
 
     // Now act accordingly
     // > 0 -> data
@@ -442,8 +452,8 @@ bool Socket::receive_data(bool retry) throw (std::runtime_error)
     {
         if(errno == EWOULDBLOCK)
         {
-            if(retry)
-                return receive_data(retry);
+            if(blocking)
+                return receive_data(blocking);
         }
         else
         {
@@ -467,12 +477,6 @@ std::vector<Socket::message_in_t> Socket::receive_all()
     {
         pull_messages(m_blocking);
     }
-
-    /*
-    while(receive(msg))
-    {
-        result.push_back(msg);
-    }*/
 
     while(has_messages())
     {
@@ -508,15 +512,14 @@ bool Socket::send(const message_out_t& message) throw(std::runtime_error)
         throw std::runtime_error("Cannot send data on invalid port");
     }
 
-    size_t pos = 0;
+    if(message.length <= 0)
+    {
+        throw std::runtime_error("Message size has to be > 0");
+    }
 
     uint32_t sent = 0;
-    int32_t s = 0;
 
-    const size_t length = message.length;
-    const uint8_t* data = message.data;
-
-    const uint32_t header = length;
+    const uint32_t header = message.length;
     const size_t header_size = sizeof(header);
 
     auto written = ::write(m_fd, &header, header_size);
@@ -529,9 +532,9 @@ bool Socket::send(const message_out_t& message) throw(std::runtime_error)
         return false;
     }
 
-    while(sent < length)
+    while(sent < message.length)
     {
-        s = ::write(m_fd, data+sent, length-sent);
+        auto s = ::write(m_fd, message.data+sent, message.length-sent);
 
         if(s > 0)
             sent += s;
@@ -553,8 +556,6 @@ bool Socket::send(const message_out_t& message) throw(std::runtime_error)
             }
         }
     }
-
-    pos++;
 
     return true;
 }

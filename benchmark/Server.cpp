@@ -14,6 +14,12 @@ public:
     ClientHandler(network::Socket *socket)
         : SocketListener(socket)
     {
+        LOG(INFO) << "Client connected";
+    }
+
+    ~ClientHandler()
+    {
+        LOG(INFO) << "Client disconnected";
     }
 
 protected:
@@ -49,7 +55,11 @@ private:
         bool res = socket().send(reinterpret_cast<const uint8_t*>(&MSG_TYPE_PONG), sizeof(MSG_TYPE_PONG));
 
         if(!res)
+        {
             throw std::runtime_error("Failed to send data!");
+        }
+        else
+            DLOG(INFO) << "Sent pong";
     }
 
     uint32_t m_pong_count = 0;
@@ -64,6 +74,7 @@ public:
 
     ~Server()
     {
+        LOG(INFO) << "Shutting down.";
         EventLoop::destroy();
     }
 
@@ -82,8 +93,9 @@ public:
         }
 
         socket->set_blocking(false);
-
         SocketListener::set_socket(socket);
+
+        LOG(INFO) << "Server initialized";
         return true;
     }
 
