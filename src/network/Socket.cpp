@@ -381,7 +381,14 @@ bool Socket::pull_messages(bool blocking) throw (std::runtime_error)
 
         if(is_valid())
         {
-            msg.data = new uint8_t[msg.length];
+            if(msg.length == 0)
+            {
+                // Received invalid message
+                close();
+                return false;
+            }
+            else
+                msg.data = new uint8_t[msg.length];
         }
         else
             return false;

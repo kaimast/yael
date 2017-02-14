@@ -80,6 +80,11 @@ protected:
         return *m_socket;
     }
 
+    const network::Socket& socket() const
+    {
+        return *m_socket;
+    }
+
 private:
     std::unique_ptr<network::Socket> m_socket;
 
