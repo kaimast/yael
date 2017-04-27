@@ -56,10 +56,10 @@ void EventLoop::update()
 
     if(!listener->is_valid())
     {
-        std::lock_guard<std::mutex> lock_guard(m_socket_listeners_mutex);
-
+        m_socket_listeners_mutex.lock();
         auto it = m_socket_listeners.find(listener->get_fileno());
         m_socket_listeners.erase(it);
+        m_socket_listeners_mutex.unlock();
 
         delete listener;
     }
