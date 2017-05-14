@@ -9,7 +9,7 @@ For building you further need CMake, ninja, and a recent (=C++14) compiler.
 ## Usage
 To make your socket handler compatible with the event loop just use the SocketListener interface
 ```
-class MyServer : protected SocketListener
+class MyServer : protected NetworkSocketListener
 {
 public:
     bool init()
@@ -25,7 +25,7 @@ public:
 
         socket->set_blocking(false);
 
-        SocketListener::set_socket(socket);
+        NetworkSocketListener::set_socket(socket);
         return true;
     }
 

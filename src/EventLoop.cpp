@@ -1,6 +1,7 @@
 #include "EventLoop.h"
 #include "SocketListener.h"
 
+#include <glog/logging.h>
 #include <assert.h>
 #include <sys/epoll.h>
 

@@ -8,11 +8,11 @@
 
 using namespace yael;
 
-class ClientHandler : protected SocketListener
+class ClientHandler : protected NetworkSocketListener
 {
 public:
     ClientHandler(network::Socket *socket)
-        : SocketListener(socket)
+        : NetworkSocketListener(socket)
     {
         LOG(INFO) << "Client connected";
     }
@@ -65,10 +65,10 @@ private:
     uint32_t m_pong_count = 0;
 };
 
-class Server : protected SocketListener
+class Server : protected NetworkSocketListener
 {
 public:
-    Server() : SocketListener()
+    Server() : NetworkSocketListener()
     {
     }
 
@@ -93,7 +93,7 @@ public:
         }
 
         socket->set_blocking(false);
-        SocketListener::set_socket(socket);
+        NetworkSocketListener::set_socket(socket);
 
         LOG(INFO) << "Server initialized";
         return true;

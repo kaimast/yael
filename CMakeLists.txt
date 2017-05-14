@@ -3,12 +3,13 @@ project (yael)
 
 set(YAEL_SOURCES
     src/network/Socket.cpp src/network/Address.cpp
-    src/SocketListener.cpp src/EventLoop.cpp)
+    src/NetworkSocketListener.cpp src/EventLoop.cpp)
 
 set(YAEL_INCLUDES
     include/yael/yael.h
     include/yael/network/Socket.h include/yael/network/Address.h
-    include/yael/SocketListener.h include/yael/EventLoop.h)
+    include/yael/SocketListener.h include/yael/EventLoop.h
+    include/yael/NetworkSocketListener.h)
 
 set(YAEL_TESTS
     test/main.cpp

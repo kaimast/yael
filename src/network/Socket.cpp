@@ -489,7 +489,9 @@ std::vector<Socket::message_in_t> Socket::receive_all()
     {
         message_in_t msg;
         auto res = get_message(msg);
-        assert(res);
+        if(!res)
+            throw std::runtime_error("failed to get message");
+        
         result.push_back(msg);
     }
 
