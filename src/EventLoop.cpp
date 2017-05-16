@@ -3,18 +3,19 @@
 
 #include <glog/logging.h>
 #include <assert.h>
+#include <chrono>
 #include <sys/epoll.h>
 
 // How many events can one thread see at most
 // Increasing this value might make the scheduler fairer but also slower
 constexpr int32_t MAX_EVENTS = 1;
-
+constexpr int32_t TIMEOUT_MAX = 100;
 constexpr int32_t EPOLL_FLAGS = EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLONESHOT;
 
 using namespace yael;
 
 EventLoop::EventLoop(int32_t num_threads)
-    : m_okay(true), m_epoll_fd(epoll_create1(0)), m_num_threads(num_threads)
+    : m_okay(true), m_epoll_fd(epoll_create1(0)), m_num_threads(num_threads), m_has_time_events(false)
 {
     if(m_epoll_fd < 0)
         LOG(FATAL) << "epoll_create1() failed: " << strerror(errno);
@@ -46,33 +47,62 @@ void EventLoop::stop()
     m_okay = false;
 }
 
+void EventLoop::register_time_event(uint64_t timeout, EventListener &listener)
+{
+    std::lock_guard<std::mutex> lock_guard(m_event_listeners_mutex);
+
+    m_has_time_events = true;
+    auto start = get_time() + timeout;
+
+    for(auto it = m_time_events.begin(); it != m_time_events.end(); ++it)
+    {
+        if(it->first >= start)
+        {
+            m_time_events.emplace(it, std::pair<uint64_t, EventListener*>{start, &listener});
+            return;
+        }
+    }
+
+    m_time_events.emplace_back(std::pair<uint64_t, EventListener*>{start, &listener});
+}
+
 void EventLoop::update()
 {
-    SocketListener *listener = get_next_event();
+    EventListener *listener = get_next_event();
 
     if(!listener)
         return;
 
     listener->update();
 
-    if(!listener->is_valid())
-    {
-        m_socket_listeners_mutex.lock();
-        auto it = m_socket_listeners.find(listener->get_fileno());
-        m_socket_listeners.erase(it);
-        m_socket_listeners_mutex.unlock();
+    auto slistener = dynamic_cast<SocketListener*>(listener);
 
-        delete listener;
+    if(slistener)
+    {
+        if(!slistener->is_valid())
+        {
+            m_event_listeners_mutex.lock();
+            auto it = m_socket_listeners.find(slistener->get_fileno());
+            m_socket_listeners.erase(it);
+            m_event_listeners_mutex.unlock();
+
+            delete listener;
+        }
+        else
+        {
+            //IMPORTANT unlock before you register with epoll. otherwise events could be discarded because of ONESHOT
+            slistener->unlock();
+            register_socket(slistener->get_fileno());
+        }
     }
     else
     {
-        //IMPORTANT unlock before you register with epoll. otherwise events could be discarded because of ONESHOT
+        // time event
         listener->unlock();
-        register_socket(listener->get_fileno());
     }
 }
 
-SocketListener* EventLoop::get_next_event()
+EventListener* EventLoop::get_next_event()
 {
     std::unique_lock<std::mutex> event_lock(m_queued_events_mutex);
 
@@ -91,18 +121,38 @@ SocketListener* EventLoop::get_next_event()
         return nullptr;
 }
 
+uint64_t EventLoop::get_time() const
+{
+    using std::chrono::steady_clock;
+
+    auto res = steady_clock::now();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(res.time_since_epoch()).count();
+}
+
 void EventLoop::pull_more_events()
 {
     epoll_event events[MAX_EVENTS];
 
     std::unique_lock<std::mutex> epoll_lock(m_epoll_mutex);
+    m_event_listeners_mutex.lock();
+    int32_t timeout = TIMEOUT_MAX;
+    if(m_has_time_events)
+    {
+        auto it = m_time_events.begin();
+        const auto current_time = get_time();
+        if(current_time >= it->first)
+            timeout = 0;
+        else
+            timeout = static_cast<int32_t>(it->first - current_time);
+    }
+    m_event_listeners_mutex.unlock();
 
-    int nfds = 0;
-    while(nfds == 0 && m_okay)
-        nfds = epoll_wait(m_epoll_fd, events, MAX_EVENTS, 1000);
+    int nfds = -1;
+    while(nfds < 0 || (nfds == 0 && !m_has_time_events && m_okay))
+        nfds = epoll_wait(m_epoll_fd, events, MAX_EVENTS, timeout);
 
-    if(nfds == 0)
-        return; // server shut down
+    if(!m_okay) // Event loop was terminated
+        return;
 
     if(nfds < 0)
     {
@@ -116,7 +166,7 @@ void EventLoop::pull_more_events()
 
     DLOG(INFO) << "Got " << nfds << " new events from epoll";
 
-    std::unique_lock<std::mutex> socket_listeners_lock(m_socket_listeners_mutex);
+    m_event_listeners_mutex.lock();
     epoll_lock.unlock();
 
     for(int32_t i = 0; i < nfds; ++i)
@@ -145,7 +195,31 @@ void EventLoop::pull_more_events()
         }
     }
 
-    socket_listeners_lock.unlock();
+    if(m_time_events.size() > 0)
+    {
+        auto current_time = get_time();
+        auto it = m_time_events.begin();
+        
+        while(it != m_time_events.end())
+        {
+            auto start = it->first;
+
+            if(start <= current_time)
+            {
+                auto e = it->second;
+                e->lock();
+                m_queued_events.push_back(e);
+                it = m_time_events.erase(it);
+
+                if(m_time_events.size() == 0)
+                    m_has_time_events = false;
+            }
+            else
+                break;
+        }
+    }
+
+    m_event_listeners_mutex.unlock();
 }
 
 void EventLoop::register_socket(int32_t fileno)
@@ -162,7 +236,7 @@ void EventLoop::register_socket(int32_t fileno)
 
 void EventLoop::register_socket_listener(int32_t fileno, SocketListener* listener)
 {
-    std::lock_guard<std::mutex> lock_guard(m_socket_listeners_mutex);
+    std::lock_guard<std::mutex> lock_guard(m_event_listeners_mutex);
 
     struct epoll_event ev;
     ev.events = EPOLL_FLAGS;

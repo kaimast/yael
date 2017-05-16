@@ -4,6 +4,7 @@
 #include <stack>
 #include <unordered_map>
 #include <mutex>
+#include <vector>
 #include <list>
 #include <stdint.h>
 
@@ -11,6 +12,7 @@ namespace yael
 {
 
 class SocketListener;
+class EventListener;
 
 /**
  * @brief The main EventLoop class
@@ -46,6 +48,8 @@ public:
 
     bool is_okay() const;
 
+    void register_time_event(uint64_t timeout, EventListener &listener);
+    
     /**
      * @brief get the instance of the singleton
      * @throws a runtime_error if it hasn't been intialized yet
@@ -66,12 +70,14 @@ public:
      */
     static void destroy();
 
+    uint64_t get_time() const;
+
 private:
     void thread_loop();
 
     void register_socket(int32_t fileno);
 
-    SocketListener* get_next_event();
+    EventListener* get_next_event();
 
     /**
      * Pull new events from epoll. This should only be called by get_next_event
@@ -89,12 +95,16 @@ private:
     bool m_okay;
 
     std::mutex m_epoll_mutex;
-    std::mutex m_socket_listeners_mutex;
+    std::mutex m_event_listeners_mutex;
     std::mutex m_queued_events_mutex;
 
     std::stack<std::thread> m_threads;
 
-    std::list<SocketListener*> m_queued_events;
+    std::list<EventListener*> m_queued_events;
+
+    bool m_has_time_events;
+
+    std::vector<std::pair<uint64_t, EventListener*>> m_time_events;
     std::unordered_map<int32_t, SocketListener*> m_socket_listeners;
 
     const int32_t m_epoll_fd;
