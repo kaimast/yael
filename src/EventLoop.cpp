@@ -1,5 +1,5 @@
-#include "EventLoop.h"
-#include "SocketListener.h"
+#include "yael/EventLoop.h"
+#include "yael/SocketListener.h"
 
 #include <glog/logging.h>
 #include <assert.h>
@@ -163,8 +163,6 @@ void EventLoop::pull_more_events()
 
         LOG(FATAL) << "epoll_wait() returned an error: " << strerror(errno);
     }
-
-    DLOG(INFO) << "Got " << nfds << " new events from epoll";
 
     m_event_listeners_mutex.lock();
     epoll_lock.unlock();

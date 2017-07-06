@@ -1,8 +1,7 @@
-#ifndef SOCKETASYNCTEST_H
-#define SOCKETASYNCTEST_H
+#pragma once
 
 #include <gtest/gtest.h>
-#include "network/Socket.h"
+#include "yael/network/Socket.h"
 
 namespace yael
 {
@@ -17,6 +16,4 @@ protected:
 
 }
 }
-
-#endif // SOCKETASYNCTEST_H
 
