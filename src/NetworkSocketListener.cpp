@@ -11,7 +11,8 @@ NetworkSocketListener::NetworkSocketListener()
 NetworkSocketListener::NetworkSocketListener(network::Socket *socket)
     : m_socket(nullptr), m_fileno(-1)
 {
-    set_socket(socket);
+    if(socket)
+        set_socket(socket);
 }
 
 NetworkSocketListener::NetworkSocketListener(std::unique_ptr<network::Socket> &&socket)
