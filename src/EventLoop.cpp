@@ -24,6 +24,11 @@ EventLoop::EventLoop(int32_t num_threads)
 EventLoop::~EventLoop()
 {
     ::close(m_epoll_fd);
+
+    for(auto s : m_socket_listeners)
+    {
+        delete s.second;
+    }
 }
 
 EventLoop* EventLoop::m_instance = nullptr;
