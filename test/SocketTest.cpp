@@ -26,20 +26,15 @@ TEST_F(SocketTest, send_one_way)
     bool sent = m_socket2.send(data, len);
     ASSERT_TRUE(sent);
 
-    uint8_t *data_received = nullptr;
-    uint32_t receive_len = 0;
+   auto msgs = m_peer_socket->receive_all();
 
-    bool has_data = m_peer_socket->receive(data_received, receive_len);
+    ASSERT_EQ(1, msgs.size());
 
-    ASSERT_TRUE(has_data);
-
-    ASSERT_EQ(len, receive_len);
-    ASSERT_EQ(0, memcmp(data, data_received, len));
+    ASSERT_EQ(len, msgs[0].length);
+    ASSERT_EQ(0, memcmp(data, msgs[0].data, len));
 
     ASSERT_TRUE(m_peer_socket->is_connected());
     ASSERT_TRUE(m_socket2.is_connected());
-
-    delete []data_received;
 }
 
 TEST_F(SocketTest, send_other_way)
@@ -50,20 +45,15 @@ TEST_F(SocketTest, send_other_way)
     bool sent = m_peer_socket->send(data, len);
     ASSERT_TRUE(sent);
 
-    uint8_t *data_received = nullptr;
-    uint32_t receive_len = 0;
+    auto msgs = m_socket2.receive_all();
 
-    bool has_data = m_socket2.receive(data_received, receive_len);
+    ASSERT_EQ(msgs.size(), 1);
 
-    ASSERT_TRUE(has_data);
-
-    ASSERT_EQ(len, receive_len);
-    ASSERT_EQ(0, memcmp(data, data_received, len));
+    ASSERT_EQ(msgs[0].length, len);
+    ASSERT_EQ(0, memcmp(data, msgs[0].data, msgs[0].length));
 
     ASSERT_TRUE(m_peer_socket->is_connected());
     ASSERT_TRUE(m_socket2.is_connected());
-
-    delete []data_received;
 }
 
 TEST_F(SocketTest, fileno)
@@ -82,18 +72,11 @@ TEST_F(SocketTest, first_in_first_out)
     sent = m_socket2.send(&type2, len);
     ASSERT_TRUE(sent);
 
-    uint8_t *data_received = nullptr;
-    uint32_t receive_len = 0;
+    auto msgs = m_peer_socket->receive_all();
 
-    bool has_data = m_peer_socket->receive(data_received, receive_len);
-
-    ASSERT_TRUE(has_data);
-    ASSERT_EQ(type1, *data_received);
-    ASSERT_EQ(len, receive_len);
-
-    has_data = m_peer_socket->receive(data_received, receive_len);
-
-    ASSERT_TRUE(has_data);
-    ASSERT_EQ(type2, *data_received);
-    ASSERT_EQ(len, receive_len);
+    ASSERT_EQ(msgs.size(), 2);
+    ASSERT_EQ(type1, *msgs[0].data);
+    ASSERT_EQ(len, msgs[0].length);
+    ASSERT_EQ(type2, *msgs[1].data);
+    ASSERT_EQ(len, msgs[1].length);
 }

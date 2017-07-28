@@ -23,7 +23,6 @@ TEST(EventLoopTest, start_stop)
 
     EXPECT_TRUE(loop.is_okay());
 
-    loop.run();
     loop.stop();
 
     loop.wait();

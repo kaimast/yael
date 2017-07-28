@@ -15,10 +15,12 @@
 #include <cstring>
 #include <unistd.h>
 #include <assert.h>
+#include <glog/logging.h>
 
 using namespace std;
 
-const int TRUE_FLAG = 1;
+constexpr int TRUE_FLAG = 1;
+constexpr uint32_t HEADER_SIZE = sizeof(uint32_t);
 
 namespace yael
 {
@@ -27,17 +29,21 @@ namespace network
 {
 
 Socket::Socket()
-    : m_messages(), m_port(0), m_is_ipv6(false), m_blocking(true), m_fd(-1),
+    : m_messages(), m_port(0), m_is_ipv6(false), m_fd(-1),
       m_buffer_pos(-1), m_buffer_size(0), m_listening(false), m_client_address(),
       m_has_current_message(false), m_current_message()
 {
 }
 
 Socket::Socket(int fd)
-    : m_messages(), m_port(0), m_is_ipv6(false), m_blocking(true), m_fd(fd),
+    : m_messages(), m_port(0), m_is_ipv6(false), m_fd(fd),
       m_buffer_pos(-1), m_buffer_size(0), m_listening(false), m_client_address(),
       m_has_current_message(false), m_current_message()
 {
+    int flags = fcntl(m_fd, F_GETFL, 0);
+    flags = flags | O_NONBLOCK;
+    fcntl(m_fd, F_SETFL, flags);
+
     update_port_number();
     calculate_client_address();
 }
@@ -45,18 +51,6 @@ Socket::Socket(int fd)
 Socket::~Socket()
 {
     close();
-}
-
-void Socket::set_blocking(bool blocking)
-{
-    int flags = fcntl(m_fd, F_GETFL, 0);
-    if(flags < 0)
-        throw std::runtime_error("fcntl() failed");
-
-    flags = blocking ? flags | ~O_NONBLOCK : flags | O_NONBLOCK;
-    fcntl(m_fd, F_SETFL, flags);
-
-    m_blocking = blocking;
 }
 
 bool Socket::create_fd()
@@ -76,6 +70,7 @@ bool Socket::create_fd()
     }
 
     ::setsockopt(m_fd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char*>(&TRUE_FLAG), sizeof(TRUE_FLAG));
+
     return true;
 }
 
@@ -138,6 +133,10 @@ bool Socket::listen(const Address& address, uint32_t backlog)
     {
         throw std::runtime_error("Failed to bind socket!");
     }
+
+    int flags = fcntl(m_fd, F_GETFL, 0);
+    flags = flags | O_NONBLOCK;
+    fcntl(m_fd, F_SETFL, flags);
 
     if(::listen(m_fd, backlog) == 0)
     {
@@ -207,6 +206,10 @@ bool Socket::connect(const Address& address, const std::string& name)
             return false;
         }
     }
+
+    int flags = fcntl(m_fd, F_GETFL, 0);
+    flags = flags | O_NONBLOCK;
+    fcntl(m_fd, F_SETFL, flags);
 
     calculate_client_address();
     return true;
@@ -299,145 +302,114 @@ bool Socket::get_message(message_in_t& message)
 
     auto& it = m_messages.front();
     message.data = it.data;
-    message.length = it.length;
+    message.length = it.length - HEADER_SIZE;
 
     m_messages.pop_front();
     return true;
 }
 
-bool Socket::fetch_more(bool blocking)
+void Socket::pull_messages() throw (std::runtime_error)
 {
-    bool result = false;
-
-    try {
-        result = receive_data(blocking);
-    } catch(std::runtime_error e) {
-        cerr << e.what() << endl;
-        close();
-    }
-
-    return result;
-}
-
-bool Socket::pull_messages(bool blocking) throw (std::runtime_error)
-{
-    if (!is_connected())
-        return false;
-
     bool received_full_msg = false;
-
-    if(static_cast<int32_t>(m_buffer_size) <= m_buffer_pos)
-    {
-        throw std::runtime_error("Invalid pull_messages() called");
-    }
 
     if(m_buffer_pos < 0)
     {
-        bool res = fetch_more(blocking);
+        bool res = receive_data();
         if(!res)
-            return false;
+            return;
     }
 
-    assert(m_buffer_pos >= 0 && m_buffer_size > 0 && static_cast<uint32_t>(m_buffer_pos) < m_buffer_size);
+    if(m_buffer_pos < 0 || static_cast<uint32_t>(m_buffer_pos) >= m_buffer_size)
+    {
+        throw std::runtime_error("buffer is exhausted");
+    }
 
     internal_message_in_t msg;
 
     if(m_has_current_message)
     {
-        msg = m_current_message;
+        msg = std::move(m_current_message);
         m_has_current_message = false;
-        assert(msg.length > 0);
     }
-    else
-        assert(msg.length == 0);
-
+    
     // We need to read the header of the next datagram
-    if(msg.read_pos == 0 && msg.read_pos == 0 && msg.length == 0)
+    if(msg.read_pos < HEADER_SIZE)
     {
-        const size_t header_size = sizeof(msg.length);
-        uint32_t header_pos = 0;
+        int32_t readlength = std::min<int32_t>(HEADER_SIZE - msg.read_pos, m_buffer_size - m_buffer_pos);
 
-        while((header_pos < header_size) && is_valid())
-        {
-            int32_t readlength = std::min<int32_t>(header_size - header_pos, m_buffer_size - m_buffer_pos);
-
-            assert(readlength > 0);
-            mempcpy(reinterpret_cast<char*>(&msg.length)+header_pos, &m_buffer[m_buffer_pos], readlength);
-
-            assert(readlength > 0);
-            header_pos += readlength;
-            m_buffer_pos += readlength;
-
-            if(header_pos < header_size)
-            {
-                bool res = fetch_more(true);
-                if(!res)
-                {
-                    assert(!is_valid());
-                    return false; //lost connection
-                }
-            }
-        }
-
-        if(is_valid())
-        {
-            if(msg.length == 0)
-            {
-                // Received invalid message
-                close();
-                return false;
-            }
-            else
-                msg.data = new uint8_t[msg.length];
-        }
-        else
-            return false;
-    }
-
-    const int32_t readlength = min(msg.length - msg.read_pos, m_buffer_size - m_buffer_pos);
-    assert(readlength >= 0);
-
-    if(readlength > 0)
-    {
-        mempcpy(&msg.data[msg.read_pos], &m_buffer[m_buffer_pos], readlength);
+        assert(readlength > 0);
+        mempcpy(reinterpret_cast<char*>(&msg.length)+msg.read_pos, &m_buffer[m_buffer_pos], readlength);
 
         msg.read_pos += readlength;
         m_buffer_pos += readlength;
+        if(msg.read_pos == HEADER_SIZE)
+        {
+            if(msg.length <= HEADER_SIZE)
+            {
+                LOG(FATAL) << "Not a valid message";
+                close();
+                return;
+            }
+
+            assert(msg.length > HEADER_SIZE); //FIXME
+            msg.data = new uint8_t[msg.length - HEADER_SIZE];
+        }
     }
 
-    if(msg.read_pos >= msg.length)
+    // Has header?
+    if(msg.read_pos >= HEADER_SIZE)
     {
-        m_messages.push_back(msg);
-        received_full_msg = true;
+        const int32_t readlength = min(msg.length - msg.read_pos, m_buffer_size - m_buffer_pos);
 
-        m_has_current_message = false;
-   }
+        if(readlength > 0)
+        {
+            assert(msg.read_pos >= HEADER_SIZE);
+            mempcpy(&msg.data[msg.read_pos - HEADER_SIZE], &m_buffer[m_buffer_pos], readlength);
+
+            msg.read_pos += readlength;
+            m_buffer_pos += readlength;
+        }
+
+        assert(msg.read_pos <= msg.length);
+
+        if(msg.read_pos == msg.length)
+        {
+            m_messages.push_back(msg);
+            received_full_msg = true;
+
+            m_has_current_message = false;
+        }
+    }
 
     if(!received_full_msg)
     {
-        m_current_message = msg;
+        m_current_message = std::move(msg);
         m_has_current_message = true;
     }
+
+    assert(m_buffer_pos <= m_buffer_size);
 
     // End of buffer.
     if(m_buffer_pos == static_cast<int32_t>(m_buffer_size))
     {
         m_buffer_size = 0;
         m_buffer_pos = -1;
-
-        return received_full_msg;
     }
-    else
-    {
-        // read rest of buffer
-        return pull_messages(false) || received_full_msg;
-    }
+        
+    // read rest of buffer
+    // always pull more until we get EAGAIN
+    pull_messages();
 }
 
-bool Socket::receive_data(bool blocking) throw (std::runtime_error)
+bool Socket::receive_data() throw (std::runtime_error)
 {
+    if(!is_valid())
+        return false;
+
+    assert(m_buffer_pos < 0 && m_buffer_size == 0);
+
     memset(&m_buffer[0], 0, BUFFER_SIZE);
-    int32_t x = ::recv(m_fd, m_buffer, BUFFER_SIZE, blocking ? 0: MSG_DONTWAIT);
+    int32_t x = ::recv(m_fd, m_buffer, BUFFER_SIZE, 0);
 
     // Now act accordingly
     // > 0 -> data
@@ -450,19 +422,23 @@ bool Socket::receive_data(bool blocking) throw (std::runtime_error)
 
         return true;
     }
-    else if(x == 0 || errno == ECONNRESET)
+    else if(x == 0)
     {
         close();
         return false;
     }
     else
     {
-        if(errno == EWOULDBLOCK)
+        int e = errno;
+
+        switch(e)
         {
-            if(blocking)
-                return receive_data(blocking);
-        }
-        else
+        case EAGAIN:
+            break;
+        case ECONNRESET:
+            close();
+            break;
+        default:
         {
             std::string str = "Failed to receive data; ";
             str += strerror(errno);
@@ -470,6 +446,7 @@ bool Socket::receive_data(bool blocking) throw (std::runtime_error)
             // First close socket and then throw the error!
             close();
             throw std::runtime_error(str);
+        }
         }
 
         return false;
@@ -479,11 +456,7 @@ bool Socket::receive_data(bool blocking) throw (std::runtime_error)
 std::vector<Socket::message_in_t> Socket::receive_all()
 {
     std::vector<message_in_t> result;
-
-    if(!has_messages())
-    {
-        pull_messages(m_blocking);
-    }
+    pull_messages();
 
     while(has_messages())
     {
@@ -496,22 +469,6 @@ std::vector<Socket::message_in_t> Socket::receive_all()
     }
 
     return result;
-}
-
-bool Socket::receive(message_in_t &message) throw (std::runtime_error)
-{
-    if(!has_messages() && is_connected())
-    {
-        pull_messages(true);
-
-        while(m_blocking && !has_messages() && is_connected())
-        {
-            pull_messages(false);
-        }
-    }
-
-    // There might still be messages on the stack
-    return get_message(message);
 }
 
 bool Socket::send(const message_out_t& message) throw(std::runtime_error)
@@ -527,23 +484,19 @@ bool Socket::send(const message_out_t& message) throw(std::runtime_error)
     }
 
     uint32_t sent = 0;
+    const uint32_t length = message.length + HEADER_SIZE;
 
-    const uint32_t header = message.length;
-    const size_t header_size = sizeof(header);
-
-    auto written = ::write(m_fd, &header, header_size);
-    if(written != header_size)
+    while(sent < length)
     {
-        if(errno != ECONNRESET && errno != EPIPE)
-            throw std::runtime_error(strerror(errno));
+        int32_t s = 0;
 
-        close();
-        return false;
-    }
-
-    while(sent < message.length)
-    {
-        auto s = ::write(m_fd, message.data+sent, message.length-sent);
+        if(sent < HEADER_SIZE)
+            s = ::write(m_fd, reinterpret_cast<const char*>(&length)+sent, HEADER_SIZE-sent);
+        else
+        {
+            assert(sent >= HEADER_SIZE);
+            s = ::write(m_fd, message.data+(sent-HEADER_SIZE), length-sent);
+        }
 
         if(s > 0)
             sent += s;
@@ -567,24 +520,6 @@ bool Socket::send(const message_out_t& message) throw(std::runtime_error)
     }
 
     return true;
-}
-
-std::vector<Socket*> Socket::accept_all()
-{
-    if(is_blocking())
-        throw std::runtime_error("Cannot call accept all on blocking socket");
-
-    std::vector<Socket*> result;
-
-    while(true)
-    {
-        auto sock = accept();
-
-        if(sock)
-            result.push_back(sock);
-        else
-            return result;
-    }
 }
 
 }

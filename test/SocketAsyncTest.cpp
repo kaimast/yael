@@ -16,10 +16,13 @@ static void receive_data()
     bool connected = socket.connect(addr);
     ASSERT_TRUE(connected);
 
-    bool has_data = socket.receive(data_received, receive_len);
+    auto msgs = socket.receive_all();
 
-    ASSERT_TRUE(has_data);
+    ASSERT_EQ(msgs.size(), 1);
     ASSERT_TRUE(socket.is_connected());
+
+    data_received = msgs[0].data;
+    receive_len = msgs[0].length;
 }
 
 TEST(SocketAsyncTest, send_large_chunk)

@@ -70,10 +70,6 @@ public:
      */
     bool is_valid() const;
 
-    //! Receive data
-    bool receive(message_in_t& message) throw (std::runtime_error) __attribute__((warn_unused_result));
-    bool receive(uint8_t*& data, uint32_t& length) throw (std::runtime_error) __attribute__((warn_unused_result));
-
     //! Send a message consisting of a list of datagrams
     bool send(const message_out_t& message) throw(std::runtime_error) __attribute__((warn_unused_result));
 
@@ -90,18 +86,12 @@ public:
 
     bool is_listening() const;
 
-    bool is_blocking() const;
-
     const Address& get_client_address() const;
-
-    void set_blocking(bool blocking);
 
     int32_t get_fileno() const;
 
     //! Reads as much data as possible without blocking
     std::vector<message_in_t> receive_all();
-
-    std::vector<Socket*> accept_all();
 
 protected:
     //! Construct as a child socket
@@ -110,7 +100,7 @@ protected:
 
 private:
     //! Pull new messages from the socket onto our stack
-    bool pull_messages(bool bocking) throw (std::runtime_error);
+    void pull_messages() throw (std::runtime_error);
 
     struct internal_message_in_t
     {
@@ -124,6 +114,24 @@ private:
         {
         }
 
+        void operator=(internal_message_in_t &&other)
+        {
+            if(!other.valid())
+                throw std::runtime_error("other's not valid");
+
+            length = other.length;
+            read_pos = other.read_pos;
+            data = other.data;
+
+            other.length = other.read_pos = 0;
+            other.data = nullptr;
+        }
+
+        bool valid() const
+        {
+            return data != nullptr;
+        }
+
         uint32_t length;
         uint32_t read_pos;
         uint8_t  *data;
@@ -134,11 +142,9 @@ private:
     //! Take a message from the stack (if any)
     bool get_message(message_in_t& message);
 
-    bool fetch_more(bool blocking);
-
     //! Receive data from the socket
-    //! Only used by pullMessages
-    bool receive_data(bool retry) throw (std::runtime_error);
+    //! Only used by pull_messages
+    bool receive_data() throw (std::runtime_error);
 
     //! (Re)calculate m_client_address
     //! Called by constructor and connect()
@@ -161,9 +167,6 @@ private:
     //! Port used on our side of the connection
     uint16_t m_port;
     bool m_is_ipv6;
-
-    //! Is the socket set to blocking?
-    bool m_blocking;
 
     //! Filedescriptor
     int m_fd;
@@ -201,11 +204,6 @@ inline bool Socket::is_listening() const
     return is_valid() && m_listening;
 }
 
-inline bool Socket::is_blocking() const
-{
-    return m_blocking;
-}
-
 inline bool Socket::has_messages() const
 {
     return m_messages.size() > 0;
@@ -220,20 +218,6 @@ inline bool Socket::listen(const std::string& name, uint16_t port, uint32_t back
 {
     Address addr = resolve_URL(name, port);
     return listen(addr, backlog);
-}
-
-inline bool Socket::receive(uint8_t *&data, uint32_t &length) throw(std::runtime_error)
-{
-    message_in_t message;
-    bool result = receive(message);
-
-    if(!result)
-        return false;
-
-    data = message.data;
-    length = message.length;
-
-    return result;
 }
 
 inline bool Socket::send(const uint8_t *data, const uint32_t length) throw(std::runtime_error)

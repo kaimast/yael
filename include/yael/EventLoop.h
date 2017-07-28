@@ -21,22 +21,10 @@ class EventListener;
 class EventLoop
 {
 public:
-     /**
-     * @brief initalizes worker threads that poll for new events
-     */
-    void run();
-
     /**
      * @brief wait for event loop to terminate
      */
     void wait();
-
-    /**
-     * @brief manually update the event loop
-     *      This function will block until a new event occurs
-     * @note only call this if you don't use run()
-     */
-    void update();
 
     /**
      * @brief Registers a new socket listener
@@ -73,6 +61,9 @@ public:
     uint64_t get_time() const;
 
 private:
+    void run();
+    void update();
+    
     void thread_loop();
 
     void register_socket(int32_t fileno);
