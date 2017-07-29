@@ -184,6 +184,11 @@ bool Socket::connect(const Address& address, const std::string& name)
         }
     }
 
+    // Set it blocking just for connect
+    int flags = fcntl(m_fd, F_GETFL, 0);
+    flags = flags | ~O_NONBLOCK;
+    fcntl(m_fd, F_SETFL, flags);
+
     if(m_is_ipv6)
     {
         sockaddr_in6 sock_addr;
@@ -207,7 +212,7 @@ bool Socket::connect(const Address& address, const std::string& name)
         }
     }
 
-    int flags = fcntl(m_fd, F_GETFL, 0);
+    flags = fcntl(m_fd, F_GETFL, 0);
     flags = flags | O_NONBLOCK;
     fcntl(m_fd, F_SETFL, flags);
 
