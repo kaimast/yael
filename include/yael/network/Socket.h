@@ -45,7 +45,7 @@ public:
     ~Socket();
 
     //! Accept new connections
-    Socket* accept();
+    std::vector<Socket*> accept();
 
     bool has_messages() const;
 

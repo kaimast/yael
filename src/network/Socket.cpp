@@ -215,48 +215,53 @@ bool Socket::connect(const Address& address, const std::string& name)
     return true;
 }
 
-Socket* Socket::accept()
+std::vector<Socket*> Socket::accept()
 {
     if(!is_listening())
     {
         throw std::runtime_error("Cannot accept on connected TcpSocket");
     }
 
-    Address address;
-    int32_t s = 0;
+    std::vector<Socket*> res;
 
-    if(m_is_ipv6)
+    while(true)
     {
-        sockaddr_in6 sock_addr;
-        socklen_t len = sizeof(sock_addr);
-        s = ::accept(m_fd, reinterpret_cast<sockaddr*>(&sock_addr), &len);
-        address = Address(sock_addr);
-    }
-    else
-    {
-        sockaddr_in sock_addr;
-        socklen_t len = sizeof(sock_addr);
-        s = ::accept(m_fd, reinterpret_cast<sockaddr*>(&sock_addr), &len);
-        address = Address(sock_addr);
-    }
+        Address address;
+        int32_t s = 0;
 
-    if(s < 0)
-    {
-        if(errno != EWOULDBLOCK)
+        if(m_is_ipv6)
         {
-            close();
-            std::string str = "Failed to accept new connection; ";
-            str += strerror(errno);
-            throw std::runtime_error(str);
+            sockaddr_in6 sock_addr;
+            socklen_t len = sizeof(sock_addr);
+            s = ::accept(m_fd, reinterpret_cast<sockaddr*>(&sock_addr), &len);
+            address = Address(sock_addr);
         }
         else
         {
-            return nullptr;
+            sockaddr_in sock_addr;
+            socklen_t len = sizeof(sock_addr);
+            s = ::accept(m_fd, reinterpret_cast<sockaddr*>(&sock_addr), &len);
+            address = Address(sock_addr);
         }
-    }
-    else
-    {
-        return new Socket(s);
+
+        if(s < 0)
+        {
+            if(errno != EWOULDBLOCK)
+            {
+                close();
+                std::string str = "Failed to accept new connection; ";
+                str += strerror(errno);
+                throw std::runtime_error(str);
+            }
+            else
+            {
+                return res;
+            }
+        }
+        else
+        {
+            res.push_back(new Socket(s));
+        }
     }
 }
 
@@ -319,11 +324,6 @@ void Socket::pull_messages() throw (std::runtime_error)
             return;
     }
 
-    if(m_buffer_pos < 0 || static_cast<uint32_t>(m_buffer_pos) >= m_buffer_size)
-    {
-        throw std::runtime_error("buffer is exhausted");
-    }
-
     internal_message_in_t msg;
 
     if(m_has_current_message)
@@ -346,7 +346,7 @@ void Socket::pull_messages() throw (std::runtime_error)
         {
             if(msg.length <= HEADER_SIZE)
             {
-                LOG(FATAL) << "Not a valid message";
+                LOG(ERROR) << "Not a valid message";
                 close();
                 return;
             }
@@ -429,7 +429,7 @@ bool Socket::receive_data() throw (std::runtime_error)
     }
     else
     {
-        int e = errno;
+        const int e = errno;
 
         switch(e)
         {
@@ -507,14 +507,19 @@ bool Socket::send(const message_out_t& message) throw(std::runtime_error)
         }
         else if(s < 0)
         {
-            if(errno == EAGAIN || errno == EWOULDBLOCK)
-                continue;
-            else if(errno != ECONNRESET && errno != EPIPE)
-                throw std::runtime_error(strerror(errno));
-            else
+            auto e = errno;
+
+            switch(e)
             {
+            case EAGAIN:
+            case ECONNRESET:
+                break;
+            case EPIPE:
                 close();
                 return false;
+            default:
+                close();
+                throw std::runtime_error(strerror(errno));
             }
         }
     }
