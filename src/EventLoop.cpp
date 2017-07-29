@@ -80,6 +80,12 @@ void EventLoop::update()
     EventListener *listener = get_next_event();
 
     if(!listener)
+    {
+        pull_more_events();
+        listener = get_next_event();
+    }
+
+    if(!listener)
         return;
 
     listener->lock();
@@ -110,34 +116,18 @@ void EventLoop::update()
 
 EventListener* EventLoop::get_next_event()
 {
-    {
-        std::unique_lock<std::mutex> event_lock(m_queued_events_mutex);
-        if(m_queued_events.size() > 0)
-        {
-            auto it = m_queued_events.begin();
-            auto listener = *it;
-            m_queued_events.erase(it);
+    std::unique_lock<std::mutex> event_lock(m_queued_events_mutex);
 
-            return listener;
-        }
+    auto it = m_queued_events.begin();
+
+    if(it != m_queued_events.end())
+    {
+        auto listener = *it;
+        m_queued_events.erase(it);
+        return listener;
     }
 
-    pull_more_events();
-    
-    {
-        std::unique_lock<std::mutex> event_lock(m_queued_events_mutex);
-        if(m_queued_events.size() > 0)
-        {
-            auto it = m_queued_events.begin();
-            auto listener = *it;
-            m_queued_events.erase(it);
-
-            return listener;
-        }
-        else
-            return nullptr;
-    }
-
+    return nullptr;
 }
 
 uint64_t EventLoop::get_time() const
