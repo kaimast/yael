@@ -12,4 +12,6 @@ log_dep = cpp.find_library('glog')
 yael = shared_library('yael', ['src/network/Socket.cpp', 'src/network/Address.cpp', 'src/NetworkSocketListener.cpp', 'src/EventLoop.cpp'], include_directories:[incdir], dependencies: [log_dep, thread_dep], install: true)
 yael_dep = declare_dependency(link_with: yael)
 
+yael_test = executable('yael-test', ['test/peerdb_bug.cpp'], link_with: yael, dependencies: [log_dep], include_directories: [incdir])
+
 install_subdir('include/yael', install_dir : 'include')

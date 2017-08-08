@@ -14,4 +14,6 @@ public:
     virtual int32_t get_fileno() const = 0;
 };
 
+typedef std::shared_ptr<SocketListener> SocketListenerPtr;
+
 }

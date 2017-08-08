@@ -35,9 +35,6 @@ void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket
 
     m_socket = std::move(socket);
     m_fileno = m_socket->get_fileno();
-
-    auto &loop = EventLoop::get_instance();
-    loop.register_socket_listener(m_fileno, this);
 }
 
 bool NetworkSocketListener::is_valid() const

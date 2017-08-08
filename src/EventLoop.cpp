@@ -24,14 +24,6 @@ EventLoop::EventLoop(int32_t num_threads)
 EventLoop::~EventLoop()
 {
     ::close(m_epoll_fd);
-
-    for(auto s : m_socket_listeners)
-    {
-        auto l = s.second;
-
-        if(l->ref_count() == 0)
-            delete s.second;
-    }
 }
 
 EventLoop* EventLoop::m_instance = nullptr;
@@ -56,7 +48,7 @@ void EventLoop::stop()
     m_okay = false;
 }
 
-void EventLoop::register_time_event(uint64_t timeout, EventListener &listener)
+void EventLoop::register_time_event(uint64_t timeout, EventListenerPtr listener)
 {
     std::lock_guard<std::mutex> lock_guard(m_event_listeners_mutex);
 
@@ -67,17 +59,17 @@ void EventLoop::register_time_event(uint64_t timeout, EventListener &listener)
     {
         if(it->first >= start)
         {
-            m_time_events.emplace(it, std::pair<uint64_t, EventListener*>{start, &listener});
+            m_time_events.emplace(it, std::pair<uint64_t, EventListenerPtr>{start, listener});
             return;
         }
     }
 
-    m_time_events.emplace_back(std::pair<uint64_t, EventListener*>{start, &listener});
+    m_time_events.emplace_back(std::pair<uint64_t, EventListenerPtr>{start, listener});
 }
 
 void EventLoop::update()
 {
-    EventListener *listener = get_next_event();
+    auto listener = get_next_event();
 
     if(!listener)
     {
@@ -90,22 +82,15 @@ void EventLoop::update()
 
     listener->lock();
     listener->update();
-    listener->drop();
 
-    auto slistener = dynamic_cast<SocketListener*>(listener);
+    auto slistener = std::dynamic_pointer_cast<SocketListener>(listener);
 
     if(slistener && !slistener->is_valid())
     {
         m_event_listeners_mutex.lock();
-        if(listener->ref_count() == 0)
-        {
-            auto it = m_socket_listeners.find(slistener->get_fileno());
+        auto it = m_socket_listeners.find(slistener->get_fileno());
+        if(it != m_socket_listeners.end())
             m_socket_listeners.erase(it);
-
-            delete listener;
-        }
-        else
-            listener->unlock();
         m_event_listeners_mutex.unlock();
     }
     else
@@ -114,7 +99,7 @@ void EventLoop::update()
     }
 }
 
-EventListener* EventLoop::get_next_event()
+EventListenerPtr EventLoop::get_next_event()
 {
     std::unique_lock<std::mutex> event_lock(m_queued_events_mutex);
 
@@ -188,7 +173,6 @@ void EventLoop::pull_more_events()
         }
 
         auto listener = it->second;
-        listener->raise();
         m_queued_events.push_back(listener);
     }
 
@@ -222,6 +206,9 @@ void EventLoop::pull_more_events()
 
 void EventLoop::register_socket(int32_t fileno)
 {
+    if(fileno <= 0)
+        throw std::runtime_error("Not a valid socket");
+
     struct epoll_event ev;
     ev.events = EPOLL_FLAGS;
     ev.data.fd = fileno;
@@ -231,8 +218,10 @@ void EventLoop::register_socket(int32_t fileno)
         LOG(FATAL) << "epoll_ctl() failed: " << strerror(errno);
 }
 
-void EventLoop::register_socket_listener(int32_t fileno, SocketListener* listener)
+void EventLoop::register_socket_listener(SocketListenerPtr listener)
 {
+    auto fileno = listener->get_fileno();
+
     std::lock_guard<std::mutex> lock_guard(m_event_listeners_mutex);
 
     struct epoll_event ev;
