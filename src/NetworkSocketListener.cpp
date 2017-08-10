@@ -25,7 +25,7 @@ NetworkSocketListener::~NetworkSocketListener()
 {
 }
 
-void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket) throw(std::runtime_error)
+void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket) 
 {
     if(m_socket)
         throw std::runtime_error("There is already a socket assigned to this listener!");

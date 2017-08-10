@@ -36,8 +36,8 @@ public:
      * @param socket the socket
      * @throw std::runtime_error if there is already a socket assigned to this listener
      */
-    void set_socket(std::unique_ptr<network::Socket> &&socket) throw(std::runtime_error);
-    void set_socket(network::Socket* socket) throw(std::runtime_error);
+    void set_socket(std::unique_ptr<network::Socket> &&socket) ;
+    void set_socket(network::Socket* socket);
 
     /**
      * @brief get the current or most recent fileno associated with this listener
@@ -72,7 +72,7 @@ private:
     int32_t m_fileno;
 };
 
-inline void NetworkSocketListener::set_socket(network::Socket *socket) throw(std::runtime_error)
+inline void NetworkSocketListener::set_socket(network::Socket *socket) 
 {
     set_socket(std::unique_ptr<network::Socket>(socket));
 }

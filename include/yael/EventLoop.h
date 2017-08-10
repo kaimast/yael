@@ -52,7 +52,7 @@ public:
      * @brief get the instance of the singleton
      * @throws a runtime_error if it hasn't been intialized yet
      */
-    static EventLoop& get_instance() throw(std::runtime_error);
+    static EventLoop& get_instance();
 
     /**
      * @brief Initializes the event loop
@@ -60,7 +60,7 @@ public:
      *		amount of threads. By default (-1) it will estimate based on CPU cores avaiable
      * @throws runtime_error if already initialized
      */
-    static void initialize(int32_t num_threads = -1) throw(std::runtime_error);
+    static void initialize(int32_t num_threads = -1);
 
     /**
      * @brief destroys the event loop instance. it is safe to call this multiple times.
@@ -115,7 +115,7 @@ private:
 };
 
 
-inline EventLoop& EventLoop::get_instance() throw(std::runtime_error)
+inline EventLoop& EventLoop::get_instance()
 {
     if(!m_instance)
         throw std::runtime_error("Event loop not initialized (yet)!");

@@ -71,10 +71,10 @@ public:
     bool is_valid() const;
 
     //! Send a message consisting of a list of datagrams
-    bool send(const message_out_t& message) throw(std::runtime_error) __attribute__((warn_unused_result));
+    bool send(const message_out_t& message) __attribute__((warn_unused_result));
 
     //! Send either raw data or string
-    bool send(const uint8_t* data, const uint32_t length) throw(std::runtime_error) __attribute__((warn_unused_result));
+    bool send(const uint8_t* data, const uint32_t length) __attribute__((warn_unused_result));
 
     /**
      * Either the listening port or the connection port
@@ -100,7 +100,7 @@ protected:
 
 private:
     //! Pull new messages from the socket onto our stack
-    void pull_messages() throw (std::runtime_error);
+    void pull_messages();
 
     struct internal_message_in_t
     {
@@ -144,7 +144,7 @@ private:
 
     //! Receive data from the socket
     //! Only used by pull_messages
-    bool receive_data() throw (std::runtime_error);
+    bool receive_data();
 
     //! (Re)calculate m_client_address
     //! Called by constructor and connect()
@@ -220,7 +220,7 @@ inline bool Socket::listen(const std::string& name, uint16_t port, uint32_t back
     return listen(addr, backlog);
 }
 
-inline bool Socket::send(const uint8_t *data, const uint32_t length) throw(std::runtime_error)
+inline bool Socket::send(const uint8_t *data, const uint32_t length) 
 {
     message_out_t msg = {data, length};
     return send(msg);

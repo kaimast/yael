@@ -318,7 +318,7 @@ bool Socket::get_message(message_in_t& message)
     return true;
 }
 
-void Socket::pull_messages() throw (std::runtime_error)
+void Socket::pull_messages() 
 {
     bool received_full_msg = false;
 
@@ -392,8 +392,6 @@ void Socket::pull_messages() throw (std::runtime_error)
         m_has_current_message = true;
     }
 
-    assert(m_buffer_pos <= m_buffer_size);
-
     // End of buffer.
     if(m_buffer_pos == static_cast<int32_t>(m_buffer_size))
     {
@@ -406,7 +404,7 @@ void Socket::pull_messages() throw (std::runtime_error)
     pull_messages();
 }
 
-bool Socket::receive_data() throw (std::runtime_error)
+bool Socket::receive_data() 
 {
     if(!is_valid())
         return false;
@@ -476,7 +474,7 @@ std::vector<Socket::message_in_t> Socket::receive_all()
     return result;
 }
 
-bool Socket::send(const message_out_t& message) throw(std::runtime_error)
+bool Socket::send(const message_out_t& message)
 {
     if(!is_valid())
     {

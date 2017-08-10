@@ -15,7 +15,7 @@ constexpr int32_t EPOLL_FLAGS = EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLET;
 using namespace yael;
 
 EventLoop::EventLoop(int32_t num_threads)
-    : m_okay(true), m_epoll_fd(epoll_create1(0)), m_num_threads(num_threads), m_has_time_events(false)
+    : m_okay(true), m_has_time_events(false), m_epoll_fd(epoll_create1(0)), m_num_threads(num_threads)
 {
     if(m_epoll_fd < 0)
         LOG(FATAL) << "epoll_create1() failed: " << strerror(errno);
@@ -28,7 +28,7 @@ EventLoop::~EventLoop()
 
 EventLoop* EventLoop::m_instance = nullptr;
 
-void EventLoop::initialize(int32_t num_threads) throw(std::runtime_error)
+void EventLoop::initialize(int32_t num_threads) 
 {
     if(m_instance)
         return;  // already initialized
