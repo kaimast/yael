@@ -26,18 +26,17 @@ public:
     void wait();
 
     /// Allocate a socket listener as a shared object
-    template<typename T, class... Args>
+    template<typename T, typename... Args>
     std::shared_ptr<T> allocate_socket_listener(Args&&... args)
     {
-        std::allocator<T> alloc;
-        return std::allocate_shared<T>(alloc, args...);
+        return std::make_shared<T>(std::forward<Args>(args)...);
     }
 
     // Same as allocate_* but also registers the listener
-    template<typename T, class... Args>
+    template<typename T, typename... Args>
     std::shared_ptr<T> make_socket_listener(Args&&... args)
     {
-        auto l = allocate_socket_listener<T>(args...);
+        auto l = std::make_shared<T>(std::forward<Args>(args)...);
         this->register_socket_listener(std::dynamic_pointer_cast<SocketListener>(l));
         return l;
     }
@@ -71,6 +70,8 @@ public:
     uint64_t get_time() const;
 
     void register_socket_listener(SocketListenerPtr listener);
+
+    void queue_event(std::shared_ptr<EventListener> l);
 
 private:
     void run();

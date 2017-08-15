@@ -456,22 +456,21 @@ bool Socket::receive_data()
     }
 }
 
-std::vector<Socket::message_in_t> Socket::receive_all()
+std::optional<Socket::message_in_t> Socket::receive()
 {
-    std::vector<message_in_t> result;
     pull_messages();
 
-    while(has_messages())
+    if(has_messages())
     {
         message_in_t msg;
         auto res = get_message(msg);
         if(!res)
             throw std::runtime_error("failed to get message");
         
-        result.push_back(msg);
+        return { msg };
     }
-
-    return result;
+    else
+        return {};
 }
 
 bool Socket::send(const message_out_t& message)

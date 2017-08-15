@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <mutex>
 #include <tuple>
+#include <optional>
 #include <stdexcept>
 
 #include <yael/network/Address.h>
@@ -90,8 +91,7 @@ public:
 
     int32_t get_fileno() const;
 
-    //! Reads as much data as possible without blocking
-    std::vector<message_in_t> receive_all();
+    std::optional<message_in_t> receive();
 
 protected:
     //! Construct as a child socket

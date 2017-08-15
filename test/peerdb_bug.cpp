@@ -26,6 +26,7 @@
 #include "yael/NetworkSocketListener.h"
 #include "yael/EventLoop.h"
 
+using namespace yael;
 using namespace std::chrono_literals;
 typedef uint32_t remote_party_id;
 
@@ -33,7 +34,7 @@ class PeerHandler : public yael::NetworkSocketListener
 {
 public:
     PeerHandler(const std::string &host, uint16_t port);
-    PeerHandler(yael::network::Socket *s);
+    PeerHandler(std::unique_ptr<network::Socket> &&s);
     ~PeerHandler();
     remote_party_id identifier() const;
     void send(const std::string &msg);
@@ -41,13 +42,14 @@ public:
     void notify_all();
 
 protected:
-    void update() override;
+    void on_network_message(network::Socket::message_in_t &msg) override;
 
 private:
     static std::atomic<remote_party_id> m_next_remote_party_id;
     remote_party_id m_identifier;
     std::condition_variable_any m_condition_var;
 };
+
 remote_party_id g_upstream_id;
 std::atomic<remote_party_id> PeerHandler::m_next_remote_party_id;
 std::unordered_map<remote_party_id, std::shared_ptr<PeerHandler>> g_peer_handlers;
@@ -59,7 +61,7 @@ public:
     void connect(const std::string &host, uint16_t port);
 
 protected:
-    void update() override;
+    void on_new_connection(std::unique_ptr<network::Socket> &&s) override;
 };
 
 std::shared_ptr<PeerAcceptor> g_peer_acceptor = nullptr;
@@ -116,9 +118,8 @@ bool is_downstream()
     return g_upstream_id != 0;
 }
 
-PeerHandler::PeerHandler(const std::string &host, uint16_t port) :
-    yael::NetworkSocketListener(nullptr),
-    m_identifier(++m_next_remote_party_id)
+PeerHandler::PeerHandler(const std::string &host, uint16_t port)
+   : NetworkSocketListener(), m_identifier(++m_next_remote_party_id)
 {
     LOG(INFO) << "Connecting to host " << host << " port " << port;
     new Peer(m_identifier);
@@ -127,12 +128,13 @@ PeerHandler::PeerHandler(const std::string &host, uint16_t port) :
     const bool success = sock->connect(addr);
     if(!success)
         throw std::runtime_error("Failed to connect to other server");
-    yael::NetworkSocketListener::set_socket(sock);
+    
+    NetworkSocketListener::set_socket(std::unique_ptr<network::Socket>{sock}, SocketType::Connection);
 }
 
-PeerHandler::PeerHandler(yael::network::Socket *s):
-    yael::NetworkSocketListener(s),
-    m_identifier(++m_next_remote_party_id)
+PeerHandler::PeerHandler(std::unique_ptr<network::Socket> &&s)
+    : NetworkSocketListener(std::move(s), SocketType::Connection),
+      m_identifier(++m_next_remote_party_id)
 {
     new Peer(m_identifier);
     send("response | connect | ok");
@@ -169,19 +171,13 @@ void PeerHandler::notify_all()
     m_condition_var.notify_all();
 }
 
-void PeerHandler::update()
+void PeerHandler::on_network_message(network::Socket::message_in_t &pair)
 {
-    const auto &msgs = socket().receive_all();
-    LOG(INFO) << "PeerHandler::update(): got " << msgs.size() << " messages";
-    for(auto pair: msgs)
-    {
-        std::string msg(reinterpret_cast<const char*>(pair.data), pair.length);
-        Peer *peer = find_peer(m_identifier);
-        peer->lock();
-        peer->handle_message(msg);
-        peer->unlock();
-    }
-    LOG(INFO) << "PeerHandler::update(): exit";
+    std::string msg(reinterpret_cast<const char*>(pair.data), pair.length);
+    auto peer = find_peer(m_identifier);
+    peer->lock();
+    peer->handle_message(msg);
+    peer->unlock();
 }
 
 void PeerAcceptor::listen(uint16_t port)
@@ -191,7 +187,7 @@ void PeerAcceptor::listen(uint16_t port)
     bool res = socket->listen(host, port, 100);
     if(!res)
         throw std::runtime_error("socket->listen failed");
-    yael::NetworkSocketListener::set_socket(socket);
+    yael::NetworkSocketListener::set_socket(std::unique_ptr<network::Socket>{socket}, yael::SocketType::Acceptor);
     LOG(INFO) << "Listening for peers on host " << host << " port " << port;
 }
 
@@ -209,26 +205,23 @@ void PeerAcceptor::connect(const std::string &host, uint16_t port)
     LOG(INFO) << "Successfully connected to upstream host " << host << " port " << port;
 }
 
-void PeerAcceptor::update()
+void PeerAcceptor::on_new_connection(std::unique_ptr<network::Socket>&& s)
 {
-    for(auto peer: socket().accept())
-    {
-        auto &el = yael::EventLoop::get_instance();
-        auto peer_handler = el.make_socket_listener<PeerHandler>(peer);
-        g_peer_handlers[peer_handler->identifier()] = peer_handler;
-    }
+    auto &el = yael::EventLoop::get_instance();
+    auto peer_handler = el.make_socket_listener<PeerHandler>(std::move(s));
+    g_peer_handlers[peer_handler->identifier()] = peer_handler;
 }
 
-Peer::Peer(remote_party_id local_identifier) :
-    m_local_identifier(local_identifier)
+Peer::Peer(remote_party_id local_identifier)
+    : m_local_identifier(local_identifier)
 {
     g_peers[m_local_identifier] = this;
 }
 
 Peer::~Peer()
 {
-    delete this;
     g_peers.erase(m_local_identifier);
+    delete this;
 }
 
 void Peer::send(const std::string &msg)

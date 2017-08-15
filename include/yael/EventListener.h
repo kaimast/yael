@@ -7,11 +7,14 @@
 namespace yael
 {
 
-class EventListener
+class EventListener : public std::enable_shared_from_this<EventListener>
 {
 public:
     virtual ~EventListener() {}
 
+    /**
+     * Handle events
+     */
     virtual void update() = 0;
 
     /**

@@ -84,7 +84,7 @@ void EventLoop::update()
     listener->update();
 
     auto slistener = std::dynamic_pointer_cast<SocketListener>(listener);
-
+    
     if(slistener && !slistener->is_valid())
     {
         m_event_listeners_mutex.lock();
@@ -101,8 +101,8 @@ void EventLoop::update()
 
 EventListenerPtr EventLoop::get_next_event()
 {
-    std::unique_lock<std::mutex> event_lock(m_queued_events_mutex);
-
+    std::lock_guard<std::mutex> lock_guard(m_queued_events_mutex);
+   
     auto it = m_queued_events.begin();
 
     if(it != m_queued_events.end())
@@ -202,6 +202,12 @@ void EventLoop::pull_more_events()
 
     m_queued_events_mutex.unlock();
     m_event_listeners_mutex.unlock();
+}
+
+void EventLoop::queue_event(std::shared_ptr<EventListener> l)
+{
+    std::lock_guard<std::mutex> lock_guard(m_queued_events_mutex);
+    m_queued_events.push_back(l);
 }
 
 void EventLoop::register_socket(int32_t fileno)
