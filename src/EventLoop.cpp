@@ -4,21 +4,25 @@
 #include <glog/logging.h>
 #include <assert.h>
 #include <chrono>
+#include <sys/eventfd.h>
 #include <sys/epoll.h>
 
 // How many events can one thread see at most
 // Increasing this value might make the scheduler fairer but also slower
-constexpr int32_t MAX_EVENTS = 10;
+constexpr int32_t MAX_EVENTS = 1;
 constexpr int32_t TIMEOUT_MAX = 100;
 constexpr int32_t EPOLL_FLAGS = EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLET;
 
 using namespace yael;
 
 EventLoop::EventLoop(int32_t num_threads)
-    : m_okay(true), m_has_time_events(false), m_epoll_fd(epoll_create1(0)), m_num_threads(num_threads)
+    : m_okay(true), m_has_time_events(false), m_epoll_fd(epoll_create1(0)),
+      m_event_semaphore(eventfd(0, EFD_NONBLOCK | EFD_SEMAPHORE)), m_num_threads(num_threads)
 {
     if(m_epoll_fd < 0)
         LOG(FATAL) << "epoll_create1() failed: " << strerror(errno);
+
+    register_socket(m_event_semaphore, EPOLLIN | EPOLLET);
 }
 
 EventLoop::~EventLoop()
@@ -67,52 +71,19 @@ void EventLoop::register_time_event(uint64_t timeout, EventListenerPtr listener)
     m_time_events.emplace_back(std::pair<uint64_t, EventListenerPtr>{start, listener});
 }
 
-void EventLoop::update()
-{
-    auto listener = get_next_event();
-
-    if(!listener)
-    {
-        pull_more_events();
-        listener = get_next_event();
-    }
-
-    if(!listener)
-        return;
-
-    listener->lock();
-    listener->update();
-
-    auto slistener = std::dynamic_pointer_cast<SocketListener>(listener);
-    
-    if(slistener && !slistener->is_valid())
-    {
-        m_event_listeners_mutex.lock();
-        auto it = m_socket_listeners.find(slistener->get_fileno());
-        if(it != m_socket_listeners.end())
-            m_socket_listeners.erase(it);
-        m_event_listeners_mutex.unlock();
-    }
-    else
-    {
-        listener->unlock();
-    }
-}
-
 EventListenerPtr EventLoop::get_next_event()
 {
     std::lock_guard<std::mutex> lock_guard(m_queued_events_mutex);
+
+    uint64_t buffer = 0;
+    auto i = read(m_event_semaphore, reinterpret_cast<uint8_t*>(&buffer), sizeof(buffer));
+    if(i <= 0)
+        return nullptr;
    
     auto it = m_queued_events.begin();
-
-    if(it != m_queued_events.end())
-    {
-        auto listener = *it;
-        m_queued_events.erase(it);
-        return listener;
-    }
-
-    return nullptr;
+    auto listener = *it;
+    m_queued_events.erase(it);
+    return listener;
 }
 
 uint64_t EventLoop::get_time() const
@@ -123,9 +94,24 @@ uint64_t EventLoop::get_time() const
     return std::chrono::duration_cast<std::chrono::milliseconds>(res.time_since_epoch()).count();
 }
 
-void EventLoop::pull_more_events()
+EventListenerPtr EventLoop::update()
 {
+    auto l = get_next_event();
+
+    if(l)
+        return l;
+
     m_epoll_mutex.lock();
+
+    // Check again, now that the other threads has exited epoll
+    l = get_next_event();
+
+    if(l)
+    {
+        m_epoll_mutex.unlock();
+        return l;
+    }
+
     epoll_event events[MAX_EVENTS];
 
     int32_t timeout = TIMEOUT_MAX;
@@ -143,27 +129,41 @@ void EventLoop::pull_more_events()
     while(nfds < 0 || (nfds == 0 && !m_has_time_events && m_okay))
         nfds = epoll_wait(m_epoll_fd, events, MAX_EVENTS, timeout);
 
-    m_epoll_mutex.unlock();
-
     if(!m_okay) // Event loop was terminated
-        return;
+        return {nullptr};
 
     if(nfds < 0)
     {
         // was interrupted by a signal. ignore
         // badf means the content server is shutting down
         if(errno == EINTR || errno == EBADF)
-            return;
+        {
+            stop();
+            return {nullptr};
+        }
 
         LOG(FATAL) << "epoll_wait() returned an error: " << strerror(errno);
     }
 
     m_event_listeners_mutex.lock();
-    m_queued_events_mutex.lock();
     
     for(int32_t i = 0; i < nfds; ++i)
     {
         auto fd = events[i].data.fd;
+        if(fd == m_event_semaphore)
+        {
+            if(m_queued_events.size() > 1 || nfds > 1)
+            {
+                // wake up another thread to handle this
+                auto res = eventfd_write(m_event_semaphore, 0);
+
+                if(res < 0)
+                    throw std::runtime_error("eventfd error");
+            }
+            
+            continue; //do nothing... event already queued
+        }
+
         auto it = m_socket_listeners.find(fd);
 
         if(it == m_socket_listeners.end())
@@ -173,8 +173,8 @@ void EventLoop::pull_more_events()
         }
 
         auto listener = it->second;
-        m_queued_events.push_back(listener);
-    }
+        queue_event(listener);
+   }
 
     if(m_time_events.size() > 0)
     {
@@ -188,8 +188,7 @@ void EventLoop::pull_more_events()
             if(start <= current_time)
             {
                 auto e = it->second;
-                e->lock();
-                m_queued_events.push_back(e);
+                queue_event(e);
                 it = m_time_events.erase(it);
 
                 if(m_time_events.size() == 0)
@@ -200,27 +199,35 @@ void EventLoop::pull_more_events()
         }
     }
 
-    m_queued_events_mutex.unlock();
     m_event_listeners_mutex.unlock();
+    m_epoll_mutex.unlock();
+
+    return update();
 }
 
 void EventLoop::queue_event(std::shared_ptr<EventListener> l)
 {
     std::lock_guard<std::mutex> lock_guard(m_queued_events_mutex);
     m_queued_events.push_back(l);
+     
+    auto res = eventfd_write(m_event_semaphore, 1);
+
+    if(res < 0)
+        throw std::runtime_error("Eventfd error");
 }
 
-void EventLoop::register_socket(int32_t fileno)
+void EventLoop::register_socket(int32_t fileno, int32_t flags)
 {
     if(fileno <= 0)
         throw std::runtime_error("Not a valid socket");
 
     struct epoll_event ev;
-    ev.events = EPOLL_FLAGS;
+    ev.events = flags < 0 ? EPOLL_FLAGS : flags;
     ev.data.fd = fileno;
 
-    int res = epoll_ctl(m_epoll_fd, EPOLL_CTL_MOD, fileno, &ev);
-    if(res != 0 && errno != EBADF) // BADF might mean that the listener was just closed
+    int res = epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fileno, &ev);
+    m_epoll_mutex.unlock();
+    if(res != 0)
         LOG(FATAL) << "epoll_ctl() failed: " << strerror(errno);
 }
 
@@ -228,16 +235,9 @@ void EventLoop::register_socket_listener(SocketListenerPtr listener)
 {
     auto fileno = listener->get_fileno();
 
+    register_socket(fileno);
+    
     std::lock_guard<std::mutex> lock_guard(m_event_listeners_mutex);
-
-    struct epoll_event ev;
-    ev.events = EPOLL_FLAGS;
-    ev.data.fd = fileno;
-
-    int res = epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fileno, &ev);
-    if(res != 0)
-        LOG(FATAL) << "epoll_ctl() failed: " << strerror(errno);
-
     m_socket_listeners[fileno] = listener;
 }
 
@@ -245,7 +245,28 @@ void EventLoop::thread_loop()
 {
     while(this->is_okay())
     {
-        this->update();
+        auto listener = update();
+
+        if(!listener)
+            return; // terminate
+
+        listener->lock();
+        listener->update();
+
+        auto slistener = std::dynamic_pointer_cast<SocketListener>(listener);
+        
+        if(slistener && !slistener->is_valid())
+        {
+            m_event_listeners_mutex.lock();
+            auto it = m_socket_listeners.find(slistener->get_fileno());
+            if(it != m_socket_listeners.end())
+                m_socket_listeners.erase(it);
+            m_event_listeners_mutex.unlock();
+        }
+        else
+        {
+            listener->unlock();
+        }
     }
 }
 

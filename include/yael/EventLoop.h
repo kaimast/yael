@@ -75,18 +75,14 @@ public:
 
 private:
     void run();
-    void update();
+    
+    EventListenerPtr update();
     
     void thread_loop();
 
-    void register_socket(int32_t fileno);
+    void register_socket(int32_t fileno, int32_t flags = -1);
 
     EventListenerPtr get_next_event();
-
-    /**
-     * Pull new events from epoll. This should only be called by get_next_event
-     */
-    void pull_more_events();
 
     /**
      * Constructor only called by initialize()
@@ -112,6 +108,7 @@ private:
     std::unordered_map<int32_t, SocketListenerPtr> m_socket_listeners;
 
     const int32_t m_epoll_fd;
+    const int32_t m_event_semaphore;
     const int32_t m_num_threads;
 };
 
