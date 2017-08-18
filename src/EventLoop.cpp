@@ -221,11 +221,9 @@ void EventLoop::register_socket(int32_t fileno, int32_t flags)
 void EventLoop::register_socket_listener(SocketListenerPtr listener)
 {
     auto fileno = listener->get_fileno();
-
-    register_socket(fileno);
-    
     std::lock_guard<std::mutex> lock_guard(m_event_listeners_mutex);
     m_socket_listeners[fileno] = listener;
+    register_socket(fileno);
 }
 
 void EventLoop::thread_loop()
