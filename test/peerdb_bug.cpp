@@ -1,6 +1,6 @@
 // how to run & bug appearance:
 //     ./system-test-peerdb-bug upstream 10086
-//     ./system-test-peerdb-bug downstream localhost 10086
+//     ./system-test-peerdb-bug downstream localhost 10086 1
 // currently, the "downstream" will hang.
 // it seems that the response to "downstream_req_4_read_from_upstream_disk"
 // has never been received by the "downstream".
@@ -10,7 +10,11 @@
 // the bug will disappear. i believe doing this will only cover up the bug.
 // both shouldn't affect the correctness.
 // i'm suspecting that the event loop indeed misses some messages.
+//
+// to give yael some pressure, run:
+//     ./system-test-peerdb-bug downstream localhost 10086 200
 
+#include <cstdio>
 #include <cstring>
 #include <cstdlib>
 #include <atomic>
@@ -23,6 +27,9 @@
 #include <unordered_map>
 #include <glog/logging.h>
 #include <signal.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include "yael/NetworkSocketListener.h"
 #include "yael/EventLoop.h"
 
@@ -164,9 +171,13 @@ void PeerHandler::send(const std::string &msg)
         throw std::runtime_error("Failed to send message to peer " + std::to_string(identifier()));
 }
 
+std::atomic<int> g_num_waiting;
+
 void PeerHandler::wait()
 {
+    ++g_num_waiting;
     m_condition_var.wait(mutex());
+    --g_num_waiting;
 }
 
 void PeerHandler::notify_all()
@@ -399,65 +410,133 @@ void print_help()
 {
     std::cout << "usage: " << std::endl
               << "   ./system-test-peerdb-bug   upstream <listen-port>" << std::endl
-              << "   ./system-test-peerdb-bug downstream <upstream-host> <upstream-port>" << std::endl
+              << "   ./system-test-peerdb-bug downstream <upstream-host> <upstream-port> <num-processes>" << std::endl
               << std::endl;
     exit(1);
 }
 
-void do_downstream()
+void do_child(const std::string &host, uint16_t port)
 {
+    FLAGS_logbufsecs = 0; 
+    FLAGS_logbuflevel = google::GLOG_INFO;
+    FLAGS_logtostderr = 1;
+    google::InitGoogleLogging("do_upstream");
+
+    yael::EventLoop::initialize();
+    auto &event_loop = yael::EventLoop::get_instance();
+
+    g_peer_acceptor = std::shared_ptr<PeerAcceptor>{new PeerAcceptor()};//el.make_socket_listener<PeerAcceptor>();
+    g_peer_acceptor->connect(host, port);
+    
+    signal(SIGSTOP, stop_handler);
+    signal(SIGTERM, stop_handler);
+
     auto upstream = find_peer(g_upstream_id);
     upstream->lock();
     const std::string op_id = "downstream_req_3_forward_put_object";
     upstream->send("forwarded | " + op_id + " | PutObject");
     upstream->receive_response(op_id);
     upstream->unlock();
-    LOG(INFO) << "do_downstream done! if it exits in a few seconds, then the test is passed. otherwise, it fails.";
 
-    auto &event_loop = yael::EventLoop::get_instance();
+    bool ok = false;
+    for (int i = 0; i < 10; ++i)
+    {
+        int waiting = g_num_waiting;
+        LOG(INFO) << waiting << " threads waiting...";
+        if (waiting)
+        {
+            std::this_thread::sleep_for(100ms);
+        }
+        else
+        {
+            ok = true;
+            break;
+        }
+    }
+    if (ok)
+    {
+        LOG(INFO) << "success!";
+    }
+    else
+    {
+        LOG(ERROR) << "failed!";
+    }
+
     event_loop.stop();
+    event_loop.wait();
+    event_loop.destroy();
+    exit(ok ? 0 : 1);
 }
 
-int main(int argc, char** argv)
+void do_downstream(int argc, char** argv)
 {
-    google::InitGoogleLogging(argv[0]);
+    const std::string &host = argv[2];
+    const uint16_t port = std::atoi(argv[3]);
+    const int num = std::atoi(argv[4]);
+    
+    for (int i = 0; i < num; ++i)
+    {
+        pid_t pid = fork();
+        if (pid < 0)
+        {
+            perror("error");
+            abort();
+        }
+        else if (pid == 0)
+        {
+            do_child(host, port);
+            exit(0);
+        }
+    }
+
+    bool ok = true;
+    for (int i = 0; i < num; ++i)
+    {
+        int status;
+        pid_t pid = wait(&status);
+        ok = ok && status == 0;
+        printf("[%d/%d] Child with PID %ld exited with status 0x%x.\n", i+1, num, (long)pid, status);
+    }
+    if (ok)
+        puts("Success!");
+    else
+    {
+        puts("Failed!");
+        exit(1);
+    }
+}
+
+void do_upstream(int argc, char** argv)
+{
     FLAGS_logbufsecs = 0; 
     FLAGS_logbuflevel = google::GLOG_INFO;
-    FLAGS_alsologtostderr = 1;
+    FLAGS_logtostderr = 1;
+    google::InitGoogleLogging("do_upstream");
 
     yael::EventLoop::initialize();
     auto &event_loop = yael::EventLoop::get_instance();
 
     g_peer_acceptor = std::shared_ptr<PeerAcceptor>{new PeerAcceptor()};//el.make_socket_listener<PeerAcceptor>();
 
-    if (argc < 3)
-        print_help();
-    if (!strcmp(argv[1], "upstream") && argc == 3)
-    {
-        const uint16_t port = std::atoi(argv[2]);
-        g_peer_acceptor->listen(port);
-        event_loop.register_socket_listener(g_peer_acceptor);
-    }
-    else if (!strcmp(argv[1], "downstream") && argc == 4)
-    {
-        const std::string &host = argv[2];
-        const uint16_t port = std::atoi(argv[3]);
-        g_peer_acceptor->connect(host, port);
-    }
-    else
-        print_help();
+    const uint16_t port = std::atoi(argv[2]);
+    g_peer_acceptor->listen(port);
+    event_loop.register_socket_listener(g_peer_acceptor);
 
     signal(SIGSTOP, stop_handler);
     signal(SIGTERM, stop_handler);
-
-    std::thread t;
-    if (is_downstream())
-        t = std::thread(do_downstream);
-
     event_loop.wait();
     event_loop.destroy();
-    if (is_downstream())
-        t.join();
+}
 
-    google::ShutdownGoogleLogging();
+int main(int argc, char** argv)
+{
+    if (argc < 3)
+        print_help();
+    if (!strcmp(argv[1], "upstream") && argc == 3)
+        do_upstream(argc, argv);
+    else if (!strcmp(argv[1], "downstream") && argc == 5)
+        do_downstream(argc, argv);
+    else
+        print_help();
+
 }

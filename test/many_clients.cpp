@@ -122,10 +122,10 @@ void stop_handler(int)
 
 void do_child(const std::string &host, uint16_t port)
 {
-    google::InitGoogleLogging("do_child");
     FLAGS_logbufsecs = 0; 
     FLAGS_logbuflevel = google::GLOG_INFO;
-    FLAGS_alsologtostderr = 1;
+    FLAGS_logtostderr = 1;
+    google::InitGoogleLogging("do_child");
 
     yael::EventLoop::initialize();
     auto &event_loop = yael::EventLoop::get_instance();
@@ -145,8 +145,6 @@ void do_child(const std::string &host, uint16_t port)
     event_loop.wait();
     event_loop.destroy();
     t.join();
-
-    google::ShutdownGoogleLogging();
 }
 
 void do_connect(int argc, char** argv)
@@ -189,10 +187,10 @@ void do_connect(int argc, char** argv)
 
 void do_listen(int argc, char** argv)
 {
-    google::InitGoogleLogging("do_listen");
     FLAGS_logbufsecs = 0; 
     FLAGS_logbuflevel = google::GLOG_INFO;
-    FLAGS_alsologtostderr = 1;
+    FLAGS_logtostderr = 1;
+    google::InitGoogleLogging("do_listen");
 
     yael::EventLoop::initialize();
     auto &event_loop = yael::EventLoop::get_instance();
@@ -203,8 +201,6 @@ void do_listen(int argc, char** argv)
     event_loop.make_socket_listener<Acceptor>(port);
     event_loop.wait();
     event_loop.destroy();
-
-    google::ShutdownGoogleLogging();
 }
 
 void print_help()
