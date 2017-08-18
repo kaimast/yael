@@ -1,7 +1,13 @@
 // How to run:
 //     ./test-many-clients listen 10086
-//     ./test-many-clients clients localhost 10086 100
-// Try multiple times. Sometimes it'll fail.
+//     ./test-many-clients clients localhost 10086 200
+// Try multiple times. Sometimes it'll fail and the server will say
+//     Discarded event as socket listner doesn't exist
+// This is because the event loop first accept the connection,
+// then calls on_new_connection to setup a socket listener.
+// When messages come in before the socket listener is set up
+// (calls to make_socket_listener or register_socket_listener),
+// they will be discarded.
 
 #include <cstdio>
 #include <cstring>
@@ -39,20 +45,12 @@ class Peer : public yael::NetworkSocketListener
 public:
     Peer(const std::string &host, uint16_t port);
     Peer(std::unique_ptr<yael::network::Socket> &&s);
+    void send(const std::string &msg);
     bool done = false;
 
 protected:
     void on_network_message(yael::network::Socket::message_in_t &msg) override;
 };
-
-void send(yael::network::Socket& socket, const std::string &msg)
-{
-    const uint8_t *data = reinterpret_cast<const uint8_t*>(msg.c_str());
-    const uint32_t length = msg.size();
-    bool result = socket.send(data, length);
-    if (!result)
-        throw std::runtime_error("Failed to send message");
-}
 
 std::string to_string(yael::network::Socket::message_in_t &msg)
 {
@@ -86,8 +84,6 @@ Peer::Peer(const std::string &host, uint16_t port)
         throw std::runtime_error("Failed to connect to other server");
     NetworkSocketListener::set_socket(std::unique_ptr<network::Socket>{sock}, SocketType::Connection);
     LOG(INFO) << "connected to " << host << ":" << port;
-
-    send(socket(), "ping");
 }
 
 Peer::Peer(std::unique_ptr<yael::network::Socket> &&s)
@@ -96,12 +92,21 @@ Peer::Peer(std::unique_ptr<yael::network::Socket> &&s)
     LOG(INFO) << "new peer connected";
 }
 
+void Peer::send(const std::string &msg)
+{
+    const uint8_t *data = reinterpret_cast<const uint8_t*>(msg.c_str());
+    const uint32_t length = msg.size();
+    bool result = socket().send(data, length);
+    if (!result)
+        throw std::runtime_error("Failed to send message");
+}
+
 void Peer::on_network_message(yael::network::Socket::message_in_t &msg)
 {
     std::string message = to_string(msg);
     LOG(INFO) << "got message: " << message;
     if (message == "ping")
-        send(socket(), "pong");
+        send("pong");
     else if (message == "pong")
     {
         std::this_thread::sleep_for(10ms);
@@ -131,6 +136,7 @@ void do_child(const std::string &host, uint16_t port)
         std::this_thread::sleep_for(100ms);
         auto &el = EventLoop::get_instance();
         auto c = el.make_socket_listener<Peer>(host, port);
+        c->send("ping");
         while (!c->done)
             std::this_thread::sleep_for(10ms);
         el.stop();
