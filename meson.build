@@ -14,6 +14,7 @@ yael_dep = declare_dependency(link_with: yael)
 
 cpp_args = [] #-fconcepts
 
-yael_test = executable('yael-test', ['test/peerdb_bug.cpp'], cpp_args: cpp_args, link_with: yael, dependencies: [log_dep], include_directories: [incdir])
+peerdb_bug = executable('test-peerdb-bug', ['test/peerdb_bug.cpp'], cpp_args: cpp_args, link_with: yael, dependencies: [log_dep, thread_dep], include_directories: [incdir])
+many_clients = executable('test-many-clients', ['test/many_clients.cpp'], cpp_args: cpp_args, link_with: yael, dependencies: [log_dep, thread_dep], include_directories: [incdir])
 
 install_subdir('include/yael', install_dir : 'include')

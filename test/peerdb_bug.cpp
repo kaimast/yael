@@ -1,6 +1,6 @@
 // how to run & bug appearance:
 //     ./system-test-peerdb-bug upstream 10086
-//     ./system-test-peerdb-bug downstream localhost 10086
+//     ./system-test-peerdb-bug downstream localhost 10086 1
 // currently, the "downstream" will hang.
 // it seems that the response to "downstream_req_4_read_from_upstream_disk"
 // has never been received by the "downstream".
@@ -10,7 +10,11 @@
 // the bug will disappear. i believe doing this will only cover up the bug.
 // both shouldn't affect the correctness.
 // i'm suspecting that the event loop indeed misses some messages.
+//
+// to give yael some pressure, run:
+//     ./system-test-peerdb-bug downstream localhost 10086 200
 
+#include <cstdio>
 #include <cstring>
 #include <cstdlib>
 #include <atomic>
@@ -23,6 +27,9 @@
 #include <unordered_map>
 #include <glog/logging.h>
 #include <signal.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include "yael/NetworkSocketListener.h"
 #include "yael/EventLoop.h"
 
@@ -53,6 +60,7 @@ private:
 remote_party_id g_upstream_id;
 std::atomic<remote_party_id> PeerHandler::m_next_remote_party_id;
 std::unordered_map<remote_party_id, std::shared_ptr<PeerHandler>> g_peer_handlers;
+std::mutex g_peer_handlers_mutex;
 
 class PeerAcceptor : public yael::NetworkSocketListener
 {
@@ -66,7 +74,7 @@ protected:
 
 std::shared_ptr<PeerAcceptor> g_peer_acceptor = nullptr;
 
-class Peer : public std::mutex
+class Peer
 {
 public:
     Peer(remote_party_id local_identifier);
@@ -89,10 +97,11 @@ private:
 };
 
 std::unordered_map<remote_party_id, Peer*> g_peers;
-thread_local bool g_thread_holding_peer_upstream;
+std::mutex g_peers_mutex;
 
 std::shared_ptr<PeerHandler> find_peer_handler(remote_party_id id)
 {
+    std::lock_guard<std::mutex> lock(g_peer_handlers_mutex);
     auto it = g_peer_handlers.find(id);
     if (it == g_peer_handlers.end())
     {
@@ -104,6 +113,7 @@ std::shared_ptr<PeerHandler> find_peer_handler(remote_party_id id)
 
 Peer* find_peer(remote_party_id id)
 {
+    std::lock_guard<std::mutex> lock(g_peers_mutex);
     auto it = g_peers.find(id);
     if (it == g_peers.end())
     {
@@ -161,9 +171,13 @@ void PeerHandler::send(const std::string &msg)
         throw std::runtime_error("Failed to send message to peer " + std::to_string(identifier()));
 }
 
+std::atomic<int> g_num_waiting;
+
 void PeerHandler::wait()
 {
+    ++g_num_waiting;
     m_condition_var.wait(mutex());
+    --g_num_waiting;
 }
 
 void PeerHandler::notify_all()
@@ -175,9 +189,7 @@ void PeerHandler::on_network_message(network::Socket::message_in_t &pair)
 {
     std::string msg(reinterpret_cast<const char*>(pair.data), pair.length);
     auto peer = find_peer(m_identifier);
-    peer->lock();
     peer->handle_message(msg);
-    peer->unlock();
 }
 
 void PeerAcceptor::listen(uint16_t port)
@@ -196,7 +208,9 @@ void PeerAcceptor::connect(const std::string &host, uint16_t port)
     auto &el = yael::EventLoop::get_instance();
     auto peer_handler = el.make_socket_listener<PeerHandler>(host, port);
     g_upstream_id = peer_handler->identifier();
+    g_peer_handlers_mutex.lock();
     g_peer_handlers[peer_handler->identifier()] = peer_handler;
+    g_peer_handlers_mutex.unlock();
     
     auto upstream = find_peer(g_upstream_id);
     upstream->lock();
@@ -208,6 +222,7 @@ void PeerAcceptor::connect(const std::string &host, uint16_t port)
 void PeerAcceptor::on_new_connection(std::unique_ptr<network::Socket>&& s)
 {
     auto &el = yael::EventLoop::get_instance();
+    std::lock_guard<std::mutex> lock(g_peer_handlers_mutex);
     auto peer_handler = el.make_socket_listener<PeerHandler>(std::move(s));
     g_peer_handlers[peer_handler->identifier()] = peer_handler;
 }
@@ -215,13 +230,14 @@ void PeerAcceptor::on_new_connection(std::unique_ptr<network::Socket>&& s)
 Peer::Peer(remote_party_id local_identifier)
     : m_local_identifier(local_identifier)
 {
+    std::lock_guard<std::mutex> lock(g_peers_mutex);
     g_peers[m_local_identifier] = this;
 }
 
 Peer::~Peer()
 {
+    std::lock_guard<std::mutex> lock(g_peers_mutex);
     g_peers.erase(m_local_identifier);
-    delete this;
 }
 
 void Peer::send(const std::string &msg)
@@ -287,12 +303,11 @@ void fake_ledger_put(remote_party_id downstream_id)
 void fake_enclave_read_from_upstream_disk()
 {
     Peer *upstream = find_peer(g_upstream_id);
-    const bool locked = g_thread_holding_peer_upstream;
-    if (!locked) upstream->lock();
     const std::string op_id = "downstream_req_4_read_from_upstream_disk";
+    upstream->lock();
     upstream->send("request | " + op_id + " | ReadFromUpstreamDisk");
     upstream->receive_response(op_id);
-    if (!locked) upstream->unlock();
+    upstream->unlock();
 }
 
 void fake_ledger_put_object_index_from_upstream()
@@ -364,10 +379,8 @@ void Peer::notify_all()
 
 void Peer::wait()
 {
-    unlock();
     auto peer_handler = find_peer_handler(m_local_identifier);
     peer_handler->wait();
-    lock();
 }
 
 remote_party_id Peer::get_local_identifier() const
@@ -377,22 +390,14 @@ remote_party_id Peer::get_local_identifier() const
 
 void Peer::lock()
 {
-    if (m_local_identifier == g_upstream_id)
-    {
-        if (g_thread_holding_peer_upstream) return;
-        std::mutex::lock();
-        g_thread_holding_peer_upstream = true;
-    }
-    else
-    {
-        std::mutex::lock();
-    }
+    auto peer_handler = find_peer_handler(m_local_identifier);
+    peer_handler->lock();
 }
 
 void Peer::unlock()
 {
-    g_thread_holding_peer_upstream = false;
-    std::mutex::unlock();
+    auto peer_handler = find_peer_handler(m_local_identifier);
+    peer_handler->unlock();
 }
 
 void stop_handler(int)
@@ -405,62 +410,135 @@ void print_help()
 {
     std::cout << "usage: " << std::endl
               << "   ./system-test-peerdb-bug   upstream <listen-port>" << std::endl
-              << "   ./system-test-peerdb-bug downstream <upstream-host> <upstream-port>" << std::endl
+              << "   ./system-test-peerdb-bug downstream <upstream-host> <upstream-port> <num-processes>" << std::endl
               << std::endl;
     exit(1);
 }
 
-void do_downstream()
+void do_child(const std::string &host, uint16_t port)
 {
+    FLAGS_logbufsecs = 0; 
+    FLAGS_logbuflevel = google::GLOG_INFO;
+    FLAGS_logtostderr = 1;
+    google::InitGoogleLogging("do_upstream");
+
+    yael::EventLoop::initialize();
+    auto &event_loop = yael::EventLoop::get_instance();
+
+    g_peer_acceptor = std::shared_ptr<PeerAcceptor>{new PeerAcceptor()};//el.make_socket_listener<PeerAcceptor>();
+    std::this_thread::sleep_for(2000ms);
+    g_peer_acceptor->connect(host, port);
+    
+    signal(SIGSTOP, stop_handler);
+    signal(SIGTERM, stop_handler);
+
     auto upstream = find_peer(g_upstream_id);
     upstream->lock();
     const std::string op_id = "downstream_req_3_forward_put_object";
     upstream->send("forwarded | " + op_id + " | PutObject");
     upstream->receive_response(op_id);
     upstream->unlock();
+
+    bool ok = false;
+    std::this_thread::sleep_for(100ms);
+    for (int i = 0; i < 20; ++i)
+    {
+        int waiting = g_num_waiting;
+        LOG(INFO) << "trying for the " << i << "th times: " << waiting << " threads waiting...";
+        if (waiting)
+        {
+            std::this_thread::sleep_for(500ms);
+        }
+        else
+        {
+            ok = true;
+            break;
+        }
+    }
+    if (ok)
+    {
+        LOG(INFO) << "success!";
+        event_loop.stop();
+    }
+    else
+    {
+        LOG(ERROR) << "failed!";
+    }
+
+    event_loop.wait();
+    event_loop.destroy();
+    exit(ok ? 0 : 1);
 }
 
-int main(int argc, char** argv)
+void do_downstream(int argc, char** argv)
 {
-    google::InitGoogleLogging(argv[0]);
+    const std::string &host = argv[2];
+    const uint16_t port = std::atoi(argv[3]);
+    const int num = std::atoi(argv[4]);
+    
+    for (int i = 0; i < num; ++i)
+    {
+        pid_t pid = fork();
+        if (pid < 0)
+        {
+            perror("error");
+            abort();
+        }
+        else if (pid == 0)
+        {
+            do_child(host, port);
+            exit(0);
+        }
+    }
+
+    bool ok = true;
+    for (int i = 0; i < num; ++i)
+    {
+        int status;
+        pid_t pid = wait(&status);
+        ok = ok && status == 0;
+        printf("[%d/%d] Child with PID %ld exited with status 0x%x.\n", i+1, num, (long)pid, status);
+    }
+    if (ok)
+        puts("Success!");
+    else
+    {
+        puts("Failed!");
+        exit(1);
+    }
+}
+
+void do_upstream(int argc, char** argv)
+{
     FLAGS_logbufsecs = 0; 
     FLAGS_logbuflevel = google::GLOG_INFO;
-    FLAGS_alsologtostderr = 1;
+    FLAGS_logtostderr = 1;
+    google::InitGoogleLogging("do_upstream");
 
     yael::EventLoop::initialize();
     auto &event_loop = yael::EventLoop::get_instance();
 
     g_peer_acceptor = std::shared_ptr<PeerAcceptor>{new PeerAcceptor()};//el.make_socket_listener<PeerAcceptor>();
 
-    if (argc < 3)
-        print_help();
-    if (!strcmp(argv[1], "upstream") && argc == 3)
-    {
-        const uint16_t port = std::atoi(argv[2]);
-        g_peer_acceptor->listen(port);
-        event_loop.register_socket_listener(g_peer_acceptor);
-    }
-    else if (!strcmp(argv[1], "downstream") && argc == 4)
-    {
-        const std::string &host = argv[2];
-        const uint16_t port = std::atoi(argv[3]);
-        g_peer_acceptor->connect(host, port);
-    }
-    else
-        print_help();
+    const uint16_t port = std::atoi(argv[2]);
+    g_peer_acceptor->listen(port);
+    event_loop.register_socket_listener(g_peer_acceptor);
 
     signal(SIGSTOP, stop_handler);
     signal(SIGTERM, stop_handler);
-
-    if (is_downstream())
-    {
-        do_downstream();
-        LOG(INFO) << "downstream done! if it exits in a few seconds, then the test is passed. otherwise, it fails.";
-        event_loop.stop();
-    }
-
     event_loop.wait();
     event_loop.destroy();
+}
 
-    google::ShutdownGoogleLogging();
+int main(int argc, char** argv)
+{
+    if (argc < 3)
+        print_help();
+    if (!strcmp(argv[1], "upstream") && argc == 3)
+        do_upstream(argc, argv);
+    else if (!strcmp(argv[1], "downstream") && argc == 5)
+        do_downstream(argc, argv);
+    else
+        print_help();
+
 }
