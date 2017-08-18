@@ -101,17 +101,6 @@ EventListenerPtr EventLoop::update()
     if(l)
         return l;
 
-    m_epoll_mutex.lock();
-
-    // Check again, now that the other threads has exited epoll
-    l = get_next_event();
-
-    if(l)
-    {
-        m_epoll_mutex.unlock();
-        return l;
-    }
-
     epoll_event events[MAX_EVENTS];
 
     int32_t timeout = TIMEOUT_MAX;
@@ -200,7 +189,6 @@ EventListenerPtr EventLoop::update()
     }
 
     m_event_listeners_mutex.unlock();
-    m_epoll_mutex.unlock();
 
     return update();
 }
@@ -226,7 +214,6 @@ void EventLoop::register_socket(int32_t fileno, int32_t flags)
     ev.data.fd = fileno;
 
     int res = epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fileno, &ev);
-    m_epoll_mutex.unlock();
     if(res != 0)
         LOG(FATAL) << "epoll_ctl() failed: " << strerror(errno);
 }

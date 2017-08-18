@@ -53,6 +53,7 @@ private:
 remote_party_id g_upstream_id;
 std::atomic<remote_party_id> PeerHandler::m_next_remote_party_id;
 std::unordered_map<remote_party_id, std::shared_ptr<PeerHandler>> g_peer_handlers;
+std::mutex g_peer_handlers_mutex;
 
 class PeerAcceptor : public yael::NetworkSocketListener
 {
@@ -66,7 +67,7 @@ protected:
 
 std::shared_ptr<PeerAcceptor> g_peer_acceptor = nullptr;
 
-class Peer : public std::mutex
+class Peer
 {
 public:
     Peer(remote_party_id local_identifier);
@@ -89,10 +90,11 @@ private:
 };
 
 std::unordered_map<remote_party_id, Peer*> g_peers;
-thread_local bool g_thread_holding_peer_upstream;
+std::mutex g_peers_mutex;
 
 std::shared_ptr<PeerHandler> find_peer_handler(remote_party_id id)
 {
+    std::lock_guard<std::mutex> lock(g_peer_handlers_mutex);
     auto it = g_peer_handlers.find(id);
     if (it == g_peer_handlers.end())
     {
@@ -104,6 +106,7 @@ std::shared_ptr<PeerHandler> find_peer_handler(remote_party_id id)
 
 Peer* find_peer(remote_party_id id)
 {
+    std::lock_guard<std::mutex> lock(g_peers_mutex);
     auto it = g_peers.find(id);
     if (it == g_peers.end())
     {
@@ -175,9 +178,7 @@ void PeerHandler::on_network_message(network::Socket::message_in_t &pair)
 {
     std::string msg(reinterpret_cast<const char*>(pair.data), pair.length);
     auto peer = find_peer(m_identifier);
-    peer->lock();
     peer->handle_message(msg);
-    peer->unlock();
 }
 
 void PeerAcceptor::listen(uint16_t port)
@@ -196,7 +197,9 @@ void PeerAcceptor::connect(const std::string &host, uint16_t port)
     auto &el = yael::EventLoop::get_instance();
     auto peer_handler = el.make_socket_listener<PeerHandler>(host, port);
     g_upstream_id = peer_handler->identifier();
+    g_peer_handlers_mutex.lock();
     g_peer_handlers[peer_handler->identifier()] = peer_handler;
+    g_peer_handlers_mutex.unlock();
     
     auto upstream = find_peer(g_upstream_id);
     upstream->lock();
@@ -209,19 +212,21 @@ void PeerAcceptor::on_new_connection(std::unique_ptr<network::Socket>&& s)
 {
     auto &el = yael::EventLoop::get_instance();
     auto peer_handler = el.make_socket_listener<PeerHandler>(std::move(s));
+    std::lock_guard<std::mutex> lock(g_peer_handlers_mutex);
     g_peer_handlers[peer_handler->identifier()] = peer_handler;
 }
 
 Peer::Peer(remote_party_id local_identifier)
     : m_local_identifier(local_identifier)
 {
+    std::lock_guard<std::mutex> lock(g_peers_mutex);
     g_peers[m_local_identifier] = this;
 }
 
 Peer::~Peer()
 {
+    std::lock_guard<std::mutex> lock(g_peers_mutex);
     g_peers.erase(m_local_identifier);
-    delete this;
 }
 
 void Peer::send(const std::string &msg)
@@ -287,12 +292,11 @@ void fake_ledger_put(remote_party_id downstream_id)
 void fake_enclave_read_from_upstream_disk()
 {
     Peer *upstream = find_peer(g_upstream_id);
-    const bool locked = g_thread_holding_peer_upstream;
-    if (!locked) upstream->lock();
     const std::string op_id = "downstream_req_4_read_from_upstream_disk";
+    upstream->lock();
     upstream->send("request | " + op_id + " | ReadFromUpstreamDisk");
     upstream->receive_response(op_id);
-    if (!locked) upstream->unlock();
+    upstream->unlock();
 }
 
 void fake_ledger_put_object_index_from_upstream()
@@ -364,10 +368,8 @@ void Peer::notify_all()
 
 void Peer::wait()
 {
-    unlock();
     auto peer_handler = find_peer_handler(m_local_identifier);
     peer_handler->wait();
-    lock();
 }
 
 remote_party_id Peer::get_local_identifier() const
@@ -377,22 +379,14 @@ remote_party_id Peer::get_local_identifier() const
 
 void Peer::lock()
 {
-    if (m_local_identifier == g_upstream_id)
-    {
-        if (g_thread_holding_peer_upstream) return;
-        std::mutex::lock();
-        g_thread_holding_peer_upstream = true;
-    }
-    else
-    {
-        std::mutex::lock();
-    }
+    auto peer_handler = find_peer_handler(m_local_identifier);
+    peer_handler->lock();
 }
 
 void Peer::unlock()
 {
-    g_thread_holding_peer_upstream = false;
-    std::mutex::unlock();
+    auto peer_handler = find_peer_handler(m_local_identifier);
+    peer_handler->unlock();
 }
 
 void stop_handler(int)
@@ -418,6 +412,10 @@ void do_downstream()
     upstream->send("forwarded | " + op_id + " | PutObject");
     upstream->receive_response(op_id);
     upstream->unlock();
+    LOG(INFO) << "do_downstream done! if it exits in a few seconds, then the test is passed. otherwise, it fails.";
+
+    auto &event_loop = yael::EventLoop::get_instance();
+    event_loop.stop();
 }
 
 int main(int argc, char** argv)
@@ -452,15 +450,14 @@ int main(int argc, char** argv)
     signal(SIGSTOP, stop_handler);
     signal(SIGTERM, stop_handler);
 
+    std::thread t;
     if (is_downstream())
-    {
-        do_downstream();
-        LOG(INFO) << "downstream done! if it exits in a few seconds, then the test is passed. otherwise, it fails.";
-        event_loop.stop();
-    }
+        t = std::thread(do_downstream);
 
     event_loop.wait();
     event_loop.destroy();
+    if (is_downstream())
+        t.join();
 
     google::ShutdownGoogleLogging();
 }

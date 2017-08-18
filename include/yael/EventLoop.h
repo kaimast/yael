@@ -94,7 +94,6 @@ private:
 
     bool m_okay;
 
-    std::mutex m_epoll_mutex;
     std::mutex m_event_listeners_mutex;
     std::mutex m_queued_events_mutex;
 
