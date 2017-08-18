@@ -222,8 +222,8 @@ void PeerAcceptor::connect(const std::string &host, uint16_t port)
 void PeerAcceptor::on_new_connection(std::unique_ptr<network::Socket>&& s)
 {
     auto &el = yael::EventLoop::get_instance();
-    auto peer_handler = el.make_socket_listener<PeerHandler>(std::move(s));
     std::lock_guard<std::mutex> lock(g_peer_handlers_mutex);
+    auto peer_handler = el.make_socket_listener<PeerHandler>(std::move(s));
     g_peer_handlers[peer_handler->identifier()] = peer_handler;
 }
 
@@ -426,6 +426,7 @@ void do_child(const std::string &host, uint16_t port)
     auto &event_loop = yael::EventLoop::get_instance();
 
     g_peer_acceptor = std::shared_ptr<PeerAcceptor>{new PeerAcceptor()};//el.make_socket_listener<PeerAcceptor>();
+    std::this_thread::sleep_for(2000ms);
     g_peer_acceptor->connect(host, port);
     
     signal(SIGSTOP, stop_handler);
@@ -439,13 +440,14 @@ void do_child(const std::string &host, uint16_t port)
     upstream->unlock();
 
     bool ok = false;
-    for (int i = 0; i < 10; ++i)
+    std::this_thread::sleep_for(100ms);
+    for (int i = 0; i < 20; ++i)
     {
         int waiting = g_num_waiting;
-        LOG(INFO) << waiting << " threads waiting...";
+        LOG(INFO) << "trying for the " << i << "th times: " << waiting << " threads waiting...";
         if (waiting)
         {
-            std::this_thread::sleep_for(100ms);
+            std::this_thread::sleep_for(500ms);
         }
         else
         {
@@ -456,13 +458,13 @@ void do_child(const std::string &host, uint16_t port)
     if (ok)
     {
         LOG(INFO) << "success!";
+        event_loop.stop();
     }
     else
     {
         LOG(ERROR) << "failed!";
     }
 
-    event_loop.stop();
     event_loop.wait();
     event_loop.destroy();
     exit(ok ? 0 : 1);
