@@ -4,7 +4,6 @@
 #include <glog/logging.h>
 #include <assert.h>
 #include <chrono>
-#include <signal.h>
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
 
@@ -56,10 +55,10 @@ void EventLoop::stop()
     m_okay = false;
 
     // Wake up epoll
-    for(auto &t : m_threads)
+    for(uint32_t _ = 0; _ < m_threads.size(); ++_)
     {
-        auto pthread = t.native_handle();
-        pthread_kill(pthread, SIGSTOP);
+        // wake up thread by writing to eventfd
+        eventfd_write(m_event_semaphore, 0);
     }
 }
 
