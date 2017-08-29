@@ -4,6 +4,7 @@
 #include <glog/logging.h>
 #include <assert.h>
 #include <chrono>
+#include <signal.h>
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
 
@@ -49,7 +50,17 @@ void EventLoop::destroy()
 
 void EventLoop::stop()
 {
+    if(!m_okay)
+        return;//no-op
+
     m_okay = false;
+
+    // Wake up epoll
+    for(auto &t : m_threads)
+    {
+        auto pthread = t.native_handle();
+        pthread_kill(pthread, SIGSTOP);
+    }
 }
 
 void EventLoop::register_time_event(uint64_t timeout, EventListenerPtr listener)
@@ -134,7 +145,7 @@ EventListenerPtr EventLoop::update()
         LOG(FATAL) << "epoll_wait() returned an error: " << strerror(errno);
     }
 
-    m_event_listeners_mutex.lock();
+    std::unique_lock<std::mutex> event_listeners_lock(m_event_listeners_mutex);
     
     for(int32_t i = 0; i < nfds; ++i)
     {
@@ -188,7 +199,7 @@ EventListenerPtr EventLoop::update()
         }
     }
 
-    m_event_listeners_mutex.unlock();
+    event_listeners_lock.unlock();
 
     return update();
 }
@@ -269,15 +280,14 @@ void EventLoop::run()
 
     for(int32_t i = 0; i < num_threads; ++i)
     {
-        m_threads.push(std::thread(&EventLoop::thread_loop, this));
+        m_threads.push_back(std::thread(&EventLoop::thread_loop, this));
     }
 }
 
 void EventLoop::wait()
 {
-    while(!m_threads.empty())
+    for(auto &t: m_threads)
     {
-        m_threads.top().join();
-        m_threads.pop();
+        t.join();
     }
 }

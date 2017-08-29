@@ -97,7 +97,7 @@ private:
     std::mutex m_event_listeners_mutex;
     std::mutex m_queued_events_mutex;
 
-    std::stack<std::thread> m_threads;
+    std::list<std::thread> m_threads;
 
     std::list<EventListenerPtr> m_queued_events;
 
