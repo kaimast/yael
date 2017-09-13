@@ -382,7 +382,7 @@ void Socket::pull_messages()
             m_messages.push_back(msg);
             received_full_msg = true;
 
-            m_has_current_message = false;
+            m_has_current_message = false;  // FIXME: remove this? it has already been false here.
         }
     }
 
