@@ -116,9 +116,6 @@ private:
 
         void operator=(internal_message_in_t &&other)
         {
-            if(!other.valid())
-                throw std::runtime_error("other's not valid");
-
             length = other.length;
             read_pos = other.read_pos;
             data = other.data;
