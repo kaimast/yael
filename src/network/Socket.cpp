@@ -19,14 +19,14 @@
 
 using namespace std;
 
-constexpr int TRUE_FLAG = 1;
-constexpr uint32_t HEADER_SIZE = sizeof(uint32_t);
-
 namespace yael
 {
 
 namespace network
 {
+
+constexpr int TRUE_FLAG = 1;
+constexpr msg_len_t HEADER_SIZE = sizeof(msg_len_t);
 
 Socket::Socket()
     : m_messages(), m_port(0), m_is_ipv6(false), m_fd(-1),
@@ -356,7 +356,6 @@ void Socket::pull_messages()
                 return;
             }
 
-            assert(msg.length > HEADER_SIZE); //FIXME
             msg.data = new uint8_t[msg.length - HEADER_SIZE];
         }
     }
@@ -379,7 +378,7 @@ void Socket::pull_messages()
 
         if(msg.read_pos == msg.length)
         {
-            m_messages.push_back(msg);
+            m_messages.emplace_back(std::move(msg));
             received_full_msg = true;
 
             m_has_current_message = false;  // FIXME: remove this? it has already been false here.
@@ -504,6 +503,7 @@ bool Socket::send(const message_out_t& message)
             sent += s;
         else if(s == 0)
         {
+            LOG(WARNING) << "Connection lost during send: Message maybe have only been sent partially";
             close();
             return false;
         }

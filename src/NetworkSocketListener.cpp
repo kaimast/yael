@@ -54,15 +54,15 @@ void NetworkSocketListener::update()
         auto message = m_socket->receive();
         bool more_messages = m_socket->has_messages();
  
-        if(!m_socket->is_connected())
-            this->on_disconnect();
-    
         if(more_messages)
             EventLoop::get_instance().queue_event(shared_from_this());
 
         if(message)
             this->on_network_message(*message);
 
+        if(!m_socket->is_connected())
+            this->on_disconnect();
+ 
        break;
     }
     default:

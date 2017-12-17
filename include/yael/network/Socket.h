@@ -15,6 +15,8 @@ namespace yael
 namespace network
 {
 
+typedef uint32_t msg_len_t;
+
 /**
  * @brief Object-oriented wrapper for a TCP socket
  * @note This implementatio is *not* thread safe. Use the EventLoop for multiple threads polling messages.
@@ -27,13 +29,13 @@ public:
     struct message_out_t
     {
         const uint8_t *data = nullptr;
-        const uint32_t length = 0;
+        const msg_len_t length = 0;
     };
 
     struct message_in_t
     {
         uint8_t *data;
-        uint32_t length;
+        msg_len_t length;
     };
 
     static void free_message(message_in_t& message)
@@ -109,9 +111,11 @@ private:
         {
         }
 
-        internal_message_in_t(const internal_message_in_t &other)
+        internal_message_in_t(internal_message_in_t &&other)
             : length(other.length), read_pos(other.read_pos), data(other.data)
         {
+            other.length = other.read_pos = 0;
+            other.data = nullptr;
         }
 
         void operator=(internal_message_in_t &&other)
@@ -129,8 +133,8 @@ private:
             return data != nullptr;
         }
 
-        uint32_t length;
-        uint32_t read_pos;
+        msg_len_t length;
+        msg_len_t read_pos;
         uint8_t  *data;
     };
 
@@ -159,7 +163,7 @@ private:
 
     //! Internal message buffer
     static constexpr int32_t BUFFER_SIZE = 4096;
-    char m_buffer[BUFFER_SIZE];
+    uint8_t m_buffer[BUFFER_SIZE];
 
     //! Port used on our side of the connection
     uint16_t m_port;

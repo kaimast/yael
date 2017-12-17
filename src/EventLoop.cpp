@@ -43,6 +43,12 @@ void EventLoop::initialize(int32_t num_threads)
 
 void EventLoop::destroy()
 {
+    if(!m_instance)
+        throw std::runtime_error("Instance does not exist.");
+
+    if(m_instance->m_okay)
+        throw std::runtime_error("Event loop has to be stopped first!");
+
     delete m_instance;
     m_instance = nullptr;
 }
@@ -60,6 +66,9 @@ void EventLoop::stop()
         // wake up thread by writing to eventfd
         eventfd_write(m_event_semaphore, 0);
     }
+
+    // Wait for threads to terminate
+    wait();
 }
 
 void EventLoop::register_time_event(uint64_t timeout, EventListenerPtr listener)
