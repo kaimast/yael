@@ -42,7 +42,9 @@ Address::Address(const sockaddr_in& addr)
 bool Address::get_sock_address6(sockaddr_in6& addr) const
 {
     if (!IPv6)
+    {
         return false;
+    }
 
     addr.sin6_family = AF_INET6;
     inet_pton(AF_INET6, IP.c_str(), &addr.sin6_addr.s6_addr);
@@ -54,7 +56,9 @@ bool Address::get_sock_address6(sockaddr_in6& addr) const
 bool Address::get_sock_address(sockaddr_in& addr) const
 {
     if (IPv6)
+    {
         return false;
+    }
 
     addr.sin_family = AF_INET;
     inet_pton(AF_INET, IP.c_str(), &addr.sin_addr.s_addr);
@@ -63,7 +67,7 @@ bool Address::get_sock_address(sockaddr_in& addr) const
     return true;
 }
 
-Address resolve_URL(std::string url, uint16_t port_number, bool IPv6_)
+Address resolve_URL(const std::string &url, uint16_t port_number, bool IPv6)
 {
     struct addrinfo *host, *hosti;
     Address address;
@@ -78,26 +82,23 @@ Address resolve_URL(std::string url, uint16_t port_number, bool IPv6_)
     // Look for the correct address.
     for (hosti = host; hosti != 0; hosti = hosti->ai_next)
     {
-        if((IPv6_ && hosti->ai_family != AF_INET6) || (!IPv6_ && hosti->ai_family == AF_INET6))
-            continue;
-
-        if(IPv6_)
+        if((IPv6 && hosti->ai_family != AF_INET6) || (!IPv6 && hosti->ai_family == AF_INET6))
         {
-            sockaddr_in6 saddr = *(reinterpret_cast<sockaddr_in6*>(hosti->ai_addr));
+            continue;
+        }
+
+        if(IPv6)
+        {
+            auto saddr = *(reinterpret_cast<sockaddr_in6*>(hosti->ai_addr));
             address = Address(saddr);
         }
         else
         {
-            sockaddr_in saddr = *(reinterpret_cast<sockaddr_in*>(hosti->ai_addr));
+            auto saddr = *(reinterpret_cast<sockaddr_in*>(hosti->ai_addr));
             address = Address(saddr);
         }
 
         break;
-    }
-
-    if(host)
-    {
-        freeaddrinfo(host);
     }
 
     address.PortNumber = port_number;

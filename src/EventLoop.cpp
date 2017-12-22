@@ -2,7 +2,7 @@
 #include "yael/SocketListener.h"
 
 #include <glog/logging.h>
-#include <assert.h>
+#include <cassert>
 #include <chrono>
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
@@ -20,7 +20,9 @@ EventLoop::EventLoop(int32_t num_threads)
       m_event_semaphore(eventfd(0, EFD_NONBLOCK | EFD_SEMAPHORE)), m_num_threads(num_threads)
 {
     if(m_epoll_fd < 0)
+    {
         LOG(FATAL) << "epoll_create1() failed: " << strerror(errno);
+    }
 
     register_socket(m_event_semaphore, EPOLLIN | EPOLLET);
 }
@@ -35,7 +37,9 @@ EventLoop* EventLoop::m_instance = nullptr;
 void EventLoop::initialize(int32_t num_threads) 
 {
     if(m_instance)
+    {
         return;  // already initialized
+    }
 
     m_instance = new EventLoop(num_threads);
     m_instance->run();
@@ -44,10 +48,14 @@ void EventLoop::initialize(int32_t num_threads)
 void EventLoop::destroy()
 {
     if(!m_instance)
+    {
         throw std::runtime_error("Instance does not exist.");
+    }
 
     if(m_instance->m_okay)
+    {
         throw std::runtime_error("Event loop has to be stopped first!");
+    }
 
     delete m_instance;
     m_instance = nullptr;
@@ -56,7 +64,9 @@ void EventLoop::destroy()
 void EventLoop::stop()
 {
     if(!m_okay)
+    {
         return;//no-op
+    }
 
     m_okay = false;
 
@@ -97,7 +107,9 @@ EventListenerPtr EventLoop::get_next_event()
     uint64_t buffer = 0;
     auto i = read(m_event_semaphore, reinterpret_cast<uint8_t*>(&buffer), sizeof(buffer));
     if(i <= 0)
+    {
         return nullptr;
+    }
    
     auto it = m_queued_events.begin();
     auto listener = *it;
@@ -118,7 +130,9 @@ EventListenerPtr EventLoop::update()
     auto l = get_next_event();
 
     if(l)
+    {
         return l;
+    }
 
     epoll_event events[MAX_EVENTS];
 
@@ -128,17 +142,26 @@ EventListenerPtr EventLoop::update()
         auto it = m_time_events.begin();//FIXME lock time events
         const auto current_time = get_time();
         if(current_time >= it->first)
+        {
             timeout = 0;
+        }
         else
+        {
             timeout = static_cast<int32_t>(it->first - current_time);
+        }
     }
     
     int nfds = -1;
     while(nfds < 0 || (nfds == 0 && !m_has_time_events && m_okay))
+    {
         nfds = epoll_wait(m_epoll_fd, events, MAX_EVENTS, timeout);
+    }
 
-    if(!m_okay) // Event loop was terminated
+    if(!m_okay)
+    {
+        // Event loop was terminated
         return {nullptr};
+    }
 
     if(nfds < 0)
     {
@@ -184,7 +207,7 @@ EventListenerPtr EventLoop::update()
         queue_event(listener);
    }
 
-    if(m_time_events.size() > 0)
+    if(!m_time_events.empty())
     {
         auto current_time = get_time();
         auto it = m_time_events.begin();
@@ -199,11 +222,15 @@ EventListenerPtr EventLoop::update()
                 queue_event(e);
                 it = m_time_events.erase(it);
 
-                if(m_time_events.size() == 0)
+                if(m_time_events.empty())
+                {
                     m_has_time_events = false;
+                }
             }
             else
+            {
                 break;
+            }
         }
     }
 
@@ -220,13 +247,17 @@ void EventLoop::queue_event(std::shared_ptr<EventListener> l)
     auto res = eventfd_write(m_event_semaphore, 1);
 
     if(res < 0)
+    {
         throw std::runtime_error("Eventfd error");
+    }
 }
 
 void EventLoop::register_socket(int32_t fileno, int32_t flags)
 {
     if(fileno <= 0)
+    {
         throw std::runtime_error("Not a valid socket");
+    }
 
     struct epoll_event ev;
     ev.events = flags < 0 ? EPOLL_FLAGS : flags;
@@ -234,7 +265,9 @@ void EventLoop::register_socket(int32_t fileno, int32_t flags)
 
     int res = epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fileno, &ev);
     if(res != 0)
+    {
         LOG(FATAL) << "epoll_ctl() failed: " << strerror(errno);
+    }
 }
 
 void EventLoop::register_socket_listener(SocketListenerPtr listener)
@@ -252,7 +285,10 @@ void EventLoop::thread_loop()
         auto listener = update();
 
         if(!listener)
-            return; // terminate
+        {
+            // terminate
+            return;
+        }
 
         listener->lock();
         listener->update();
@@ -264,7 +300,10 @@ void EventLoop::thread_loop()
             m_event_listeners_mutex.lock();
             auto it = m_socket_listeners.find(slistener->get_fileno());
             if(it != m_socket_listeners.end())
+            {
+                listener->unlock(); // might still be used somewhere else
                 m_socket_listeners.erase(it);
+            }
             m_event_listeners_mutex.unlock();
         }
         else
@@ -283,12 +322,14 @@ void EventLoop::run()
         num_threads = 2 * std::thread::hardware_concurrency();
 
         if(num_threads <= 0)
+        {
             throw std::runtime_error("Could not detect number of hardware threads supported!");
+        }
     }
 
     for(int32_t i = 0; i < num_threads; ++i)
     {
-        m_threads.push_back(std::thread(&EventLoop::thread_loop, this));
+        m_threads.emplace_back(std::thread(&EventLoop::thread_loop, this));
     }
 }
 

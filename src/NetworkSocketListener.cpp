@@ -12,16 +12,22 @@ NetworkSocketListener::NetworkSocketListener(std::unique_ptr<network::Socket> &&
     : m_socket(nullptr), m_socket_type(SocketType::None), m_fileno(-1)
 {
     if(socket)
+    {
         set_socket(std::forward<std::unique_ptr<network::Socket>>(socket), type);
+    }
 }
 
 void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type)
 {
     if(m_socket)
+    {
         throw std::runtime_error("There is already a socket assigned to this listener!");
+    }
 
     if(!socket->is_valid())
+    {
         throw std::runtime_error("Not a valid socket!");
+    }
 
     m_socket = std::move(socket);
     m_socket_type = type;
@@ -31,7 +37,9 @@ void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket
 bool NetworkSocketListener::is_valid() const
 { 
     if(!m_socket)
+    {
         return false;
+    }
 
     return m_socket->is_valid();
 }
@@ -55,13 +63,19 @@ void NetworkSocketListener::update()
         bool more_messages = m_socket->has_messages();
  
         if(more_messages)
+        {
             EventLoop::get_instance().queue_event(shared_from_this());
+        }
 
         if(message)
+        {
             this->on_network_message(*message);
+        }
 
         if(!m_socket->is_connected())
+        {
             this->on_disconnect();
+        }
  
        break;
     }

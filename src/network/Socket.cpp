@@ -5,16 +5,16 @@
 #include <sys/socket.h>
 #include <sys/poll.h>
 #include <sys/types.h>
-#include <signal.h>
+#include <csignal>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <iostream>
-#include <errno.h>
+#include <cerrno>
 #include <stdexcept>
 #include <cstring>
 #include <unistd.h>
-#include <assert.h>
+#include <cassert>
 #include <glog/logging.h>
 
 using namespace std;
@@ -29,16 +29,16 @@ constexpr int TRUE_FLAG = 1;
 constexpr msg_len_t HEADER_SIZE = sizeof(msg_len_t);
 
 Socket::Socket()
-    : m_messages(), m_port(0), m_is_ipv6(false), m_fd(-1),
-      m_buffer_pos(-1), m_buffer_size(0), m_listening(false), m_client_address(),
-      m_has_current_message(false), m_current_message()
+    : m_port(0), m_is_ipv6(false), m_fd(-1),
+      m_buffer_pos(-1), m_buffer_size(0), m_listening(false),
+      m_has_current_message(false)
 {
 }
 
 Socket::Socket(int fd)
-    : m_messages(), m_port(0), m_is_ipv6(false), m_fd(fd),
-      m_buffer_pos(-1), m_buffer_size(0), m_listening(false), m_client_address(),
-      m_has_current_message(false), m_current_message()
+    : m_port(0), m_is_ipv6(false), m_fd(fd),
+      m_buffer_pos(-1), m_buffer_size(0), m_listening(false),
+      m_has_current_message(false)
 {
     int flags = fcntl(m_fd, F_GETFL, 0);
     flags = flags | O_NONBLOCK;
@@ -97,7 +97,9 @@ bool Socket::bind_socket(const Address& address)
     m_is_ipv6 = address.IPv6;
 
     if(!create_fd())
+    {
         return false;
+    }
 
     // Reuse address so we can quickly recover from crashes
     ::setsockopt(m_fd, SOL_SOCKET, SO_REUSEADDR, &TRUE_FLAG, sizeof(TRUE_FLAG));
@@ -166,7 +168,7 @@ bool Socket::connect(const Address& address, const std::string& name)
         throw std::invalid_argument("Need to specify a port number");
     }
 
-    if(name == "")
+    if(name.empty())
     {
         m_is_ipv6 = address.IPv6;
         if(!create_fd())
@@ -326,7 +328,9 @@ void Socket::pull_messages()
     {
         bool res = receive_data();
         if(!res)
+        {
             return;
+        }
     }
 
     internal_message_in_t msg;
@@ -406,7 +410,9 @@ void Socket::pull_messages()
 bool Socket::receive_data() 
 {
     if(!is_valid())
+    {
         return false;
+    }
 
     assert(m_buffer_pos < 0 && m_buffer_size == 0);
 
@@ -464,12 +470,16 @@ std::optional<Socket::message_in_t> Socket::receive()
         message_in_t msg;
         auto res = get_message(msg);
         if(!res)
+        {
             throw std::runtime_error("failed to get message");
+        }
         
         return { msg };
     }
     else
+    {
         return {};
+    }
 }
 
 bool Socket::send(const message_out_t& message)
@@ -492,7 +502,9 @@ bool Socket::send(const message_out_t& message)
         int32_t s = 0;
 
         if(sent < HEADER_SIZE)
+        {
             s = ::write(m_fd, reinterpret_cast<const char*>(&length)+sent, HEADER_SIZE-sent);
+        }
         else
         {
             assert(sent >= HEADER_SIZE);
@@ -500,7 +512,9 @@ bool Socket::send(const message_out_t& message)
         }
 
         if(s > 0)
+        {
             sent += s;
+        }
         else if(s == 0)
         {
             LOG(WARNING) << "Connection lost during send: Message maybe have only been sent partially";
