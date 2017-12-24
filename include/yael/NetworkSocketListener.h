@@ -26,7 +26,7 @@ public:
     NetworkSocketListener();
 
     NetworkSocketListener(const SocketListener& other) = delete;
-    virtual ~NetworkSocketListener() {}
+    virtual ~NetworkSocketListener() = default;
 
     /**
      * @brief Hand a valid socket to the listener
@@ -47,8 +47,8 @@ public:
     bool is_valid() const override;
 
     /// Callbacks
-    virtual void on_network_message(network::Socket::message_in_t &msg) {}
-    virtual void on_new_connection(std::unique_ptr<network::Socket> &&socket) {}
+    virtual void on_network_message(network::Socket::message_in_t &msg) { (void)msg; }
+    virtual void on_new_connection(std::unique_ptr<network::Socket> &&socket) { (void)socket; }
     virtual void on_disconnect() {}
 
 protected:

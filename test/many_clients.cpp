@@ -149,6 +149,9 @@ void do_child(const std::string &host, uint16_t port)
 
 void do_connect(int argc, char** argv)
 {
+    (void)argc;
+    (void)argv;
+
     const std::string &host = argv[2];
     const uint16_t port = std::atoi(argv[3]);
     const int num = std::atoi(argv[4]);
@@ -187,6 +190,9 @@ void do_connect(int argc, char** argv)
 
 void do_listen(int argc, char** argv)
 {
+    (void)argc;
+    (void)argv;
+
     FLAGS_logbufsecs = 0; 
     FLAGS_logbuflevel = google::GLOG_INFO;
     FLAGS_logtostderr = 1;
