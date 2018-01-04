@@ -351,6 +351,7 @@ void Socket::pull_messages()
 
         msg.read_pos += readlength;
         m_buffer_pos += readlength;
+
         if(msg.read_pos == HEADER_SIZE)
         {
             if(msg.length <= HEADER_SIZE)
@@ -371,21 +372,26 @@ void Socket::pull_messages()
 
         if(readlength > 0)
         {
-            assert(msg.read_pos >= HEADER_SIZE);
+            if(!msg.data)
+            {
+                throw std::runtime_error("Invalid state: message buffer not allocated");
+            }
+
             mempcpy(&msg.data[msg.read_pos - HEADER_SIZE], &m_buffer[m_buffer_pos], readlength);
 
             msg.read_pos += readlength;
             m_buffer_pos += readlength;
         }
 
-        assert(msg.read_pos <= msg.length);
+        if(msg.read_pos > msg.length)
+        {
+            throw std::runtime_error("Invalid message length");
+        }
 
         if(msg.read_pos == msg.length)
         {
             m_messages.emplace_back(std::move(msg));
             received_full_msg = true;
-
-            m_has_current_message = false;  // FIXME: remove this? it has already been false here.
         }
     }
 
@@ -401,7 +407,7 @@ void Socket::pull_messages()
         m_buffer_size = 0;
         m_buffer_pos = -1;
     }
-        
+    
     // read rest of buffer
     // always pull more until we get EAGAIN
     pull_messages();

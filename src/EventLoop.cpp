@@ -186,7 +186,9 @@ EventListenerPtr EventLoop::update()
                 auto res = eventfd_write(m_event_semaphore, 0);
 
                 if(res < 0)
+                {
                     throw std::runtime_error("eventfd error");
+                }
             }
             
             continue; //do nothing... event already queued
