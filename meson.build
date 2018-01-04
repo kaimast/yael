@@ -2,7 +2,7 @@ project('yael', 'cpp', default_options: ['cpp_std=c++1z'])
 
 incdir = include_directories('include')
 
-gtest = dependency('gtest', main : true)
+gtest = dependency('gtest')
 gmock = dependency('gmock')
 
 thread_dep = dependency('threads')

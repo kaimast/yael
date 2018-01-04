@@ -76,9 +76,6 @@ void EventLoop::stop()
         // wake up thread by writing to eventfd
         eventfd_write(m_event_semaphore, 0);
     }
-
-    // Wait for threads to terminate
-    wait();
 }
 
 void EventLoop::register_time_event(uint64_t timeout, EventListenerPtr listener)

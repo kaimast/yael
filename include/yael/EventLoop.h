@@ -22,6 +22,8 @@ class EventLoop
 public:
     /**
      * @brief wait for event loop to terminate
+     *
+     * @note this may only be called by at most one thread
      */
     void wait();
 
@@ -41,8 +43,16 @@ public:
         return l;
     }
 
+    /**
+     * Shut the event loop down
+     *
+     * Note, this is non-blocking
+     */
     void stop();
 
+    /**
+     * Is the event loop running and not about to be shut down?
+     */
     bool is_okay() const;
 
     void register_time_event(uint64_t timeout, EventListenerPtr listener);
