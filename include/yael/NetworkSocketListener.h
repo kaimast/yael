@@ -51,6 +51,11 @@ public:
     virtual void on_new_connection(std::unique_ptr<network::Socket> &&socket) { (void)socket; }
     virtual void on_disconnect() {}
 
+    bool has_messages() const override
+    {
+        return is_valid() && m_socket->has_messages();
+    }
+
 protected:
     void update() override;
 
@@ -65,6 +70,8 @@ protected:
     }
 
 private:
+    void close_hook();
+
     std::unique_ptr<network::Socket> m_socket;
     SocketType m_socket_type;
     int32_t m_fileno;

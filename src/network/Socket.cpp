@@ -53,6 +53,11 @@ Socket::~Socket()
     close();
 }
 
+void Socket::set_close_hook(std::function<void()> func)
+{
+    m_close_hook = func;
+}
+
 bool Socket::create_fd()
 {
     if(m_is_ipv6)
@@ -298,6 +303,16 @@ void Socket::calculate_client_address()
 
 void Socket::close()
 {
+    if(m_fd < 0)
+    {
+        return;
+    }
+
+    if(m_close_hook)
+    {
+        m_close_hook();
+    }
+
     int i = ::close(m_fd);
     (void)i; //unused
     m_fd = -1;
@@ -438,6 +453,7 @@ bool Socket::receive_data()
     }
     else if(x == 0)
     {
+        DLOG(INFO) << "Connection closed";
         close();
         return false;
     }
@@ -450,6 +466,7 @@ bool Socket::receive_data()
         case EAGAIN:
             break;
         case ECONNRESET:
+            DLOG(WARNING) << "Connection reset";
             close();
             break;
         default:
@@ -523,7 +540,7 @@ bool Socket::send(const message_out_t& message)
         }
         else if(s == 0)
         {
-            LOG(WARNING) << "Connection lost during send: Message maybe have only been sent partially";
+            LOG(WARNING) << "Connection lost during send: Message may only be sent partially";
             close();
             return false;
         }
@@ -537,6 +554,7 @@ bool Socket::send(const message_out_t& message)
             case ECONNRESET:
                 break;
             case EPIPE:
+                DLOG(WARNING) << "Received EPIPE";
                 close();
                 return false;
             default:

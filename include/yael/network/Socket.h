@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <mutex>
 #include <tuple>
+#include <functional>
 #include <optional>
 #include <stdexcept>
 
@@ -44,8 +45,11 @@ public:
     }
 
     Socket(const Socket& other) = delete;
+
     Socket();
     ~Socket();
+
+    void set_close_hook(std::function<void()> func);
 
     //! Accept new connections
     std::vector<Socket*> accept();
@@ -164,6 +168,8 @@ private:
     //! Internal message buffer
     static constexpr int32_t BUFFER_SIZE = 4096;
     uint8_t m_buffer[BUFFER_SIZE];
+
+    std::function<void()> m_close_hook;
 
     //! Port used on our side of the connection
     uint16_t m_port;

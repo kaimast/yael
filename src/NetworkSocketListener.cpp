@@ -17,6 +17,12 @@ NetworkSocketListener::NetworkSocketListener(std::unique_ptr<network::Socket> &&
     }
 }
 
+void NetworkSocketListener::close_hook()
+{
+    auto &el = EventLoop::get_instance();
+    el.unregister_socket_listener(m_fileno);
+}
+
 void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type)
 {
     if(m_socket)
@@ -31,6 +37,7 @@ void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket
 
     m_socket = std::move(socket);
     m_socket_type = type;
+    m_socket->set_close_hook(std::bind(&NetworkSocketListener::close_hook, this));
     m_fileno = m_socket->get_fileno();
 }
 
@@ -59,17 +66,25 @@ void NetworkSocketListener::update()
     }
     case SocketType::Connection:
     {
-        auto message = m_socket->receive();
-        bool more_messages = m_socket->has_messages();
- 
-        if(more_messages)
+        try
         {
-            EventLoop::get_instance().queue_event(shared_from_this());
-        }
+            auto message = m_socket->receive();
+            bool more_messages = m_socket->has_messages();
 
-        if(message)
+            if(more_messages)
+            {
+                EventLoop::get_instance().queue_event(shared_from_this());
+            }
+
+            if(message)
+            {
+                this->on_network_message(*message);
+            }
+        }
+        catch (std::exception &e)
         {
-            this->on_network_message(*message);
+            LOG(WARNING) << e.what();
+            m_socket->close();
         }
 
         if(!m_socket->is_connected())

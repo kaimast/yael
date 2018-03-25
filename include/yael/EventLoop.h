@@ -80,6 +80,7 @@ public:
     uint64_t get_time() const;
 
     void register_socket_listener(SocketListenerPtr listener);
+    void unregister_socket_listener(int32_t fileno);
 
     void queue_event(std::shared_ptr<EventListener> l);
 
@@ -91,6 +92,7 @@ private:
     void thread_loop();
 
     void register_socket(int32_t fileno, int32_t flags = -1);
+    void unregister_socket(int32_t fileno);
 
     EventListenerPtr get_next_event();
 
@@ -125,7 +127,9 @@ private:
 inline EventLoop& EventLoop::get_instance()
 {
     if(!m_instance)
+    {
         throw std::runtime_error("Event loop not initialized (yet)!");
+    }
 
     return *m_instance;
 }

@@ -132,6 +132,7 @@ EventListenerPtr EventLoop::update()
     }
 
     epoll_event events[MAX_EVENTS];
+    int nfds = -1;
 
     int32_t timeout = TIMEOUT_MAX;
     if(m_has_time_events)
@@ -148,7 +149,6 @@ EventListenerPtr EventLoop::update()
         }
     }
     
-    int nfds = -1;
     while(nfds < 0 || (nfds == 0 && !m_has_time_events && m_okay))
     {
         nfds = epoll_wait(m_epoll_fd, events, MAX_EVENTS, timeout);
@@ -178,6 +178,7 @@ EventListenerPtr EventLoop::update()
     for(int32_t i = 0; i < nfds; ++i)
     {
         auto fd = events[i].data.fd;
+
         if(fd == m_event_semaphore)
         {
             if(m_queued_events.size() > 1 || nfds > 1)
@@ -198,13 +199,13 @@ EventListenerPtr EventLoop::update()
 
         if(it == m_socket_listeners.end())
         {
-            DLOG(INFO) << "Discarded event as socket listner doesn't exist";
+            DLOG(WARNING) << "Discarded event for fd " << fd << " as socket listner does not exist";
             continue; // might just have been closed...
         }
 
         auto listener = it->second;
         queue_event(listener);
-   }
+    }
 
     if(!m_time_events.empty())
     {
@@ -269,13 +270,51 @@ void EventLoop::register_socket(int32_t fileno, int32_t flags)
     }
 }
 
+void EventLoop::unregister_socket(int32_t fileno)
+{
+    if(fileno <= 0)
+    {
+        throw std::runtime_error("Not a valid socket");
+    }
+
+    int res = epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fileno, nullptr);
+    (void)res; // ignore
+}
+
 void EventLoop::register_socket_listener(SocketListenerPtr listener)
 {
-    auto fileno = listener->get_fileno();
     std::lock_guard<std::mutex> lock_guard(m_event_listeners_mutex);
-    m_socket_listeners[fileno] = listener;
-    register_socket(fileno);
+
+    auto fileno = listener->get_fileno();
+    auto res = m_socket_listeners.emplace(fileno, listener);
+
+    if(!res.second)
+    {
+        LOG(FATAL) << "Listener #" << fileno << " already registered";
+    }
+    else
+    {
+        register_socket(fileno);
+    }
 }
+
+void EventLoop::unregister_socket_listener(int32_t fileno)
+{
+    std::lock_guard<std::mutex> lock_guard(m_event_listeners_mutex);
+
+    auto it = m_socket_listeners.find(fileno);
+
+    if(it == m_socket_listeners.end())
+    {
+        LOG(FATAL) << "Listener #" << fileno << " already unregistered";
+    }
+    else
+    {
+        unregister_socket(fileno);
+        m_socket_listeners.erase(it);
+    }
+}
+
 
 void EventLoop::thread_loop()
 {
@@ -291,24 +330,7 @@ void EventLoop::thread_loop()
 
         listener->lock();
         listener->update();
-
-        auto slistener = std::dynamic_pointer_cast<SocketListener>(listener);
-        
-        if(slistener && !slistener->is_valid())
-        {
-            m_event_listeners_mutex.lock();
-            auto it = m_socket_listeners.find(slistener->get_fileno());
-            if(it != m_socket_listeners.end())
-            {
-                listener->unlock(); // might still be used somewhere else
-                m_socket_listeners.erase(it);
-            }
-            m_event_listeners_mutex.unlock();
-        }
-        else
-        {
-            listener->unlock();
-        }
+        listener->unlock();
     }
 }
 
