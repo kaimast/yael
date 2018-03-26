@@ -138,7 +138,7 @@ bool Socket::listen(const Address& address, uint32_t backlog)
 {
     if(!bind_socket(address))
     {
-        throw std::runtime_error("Failed to bind socket!");
+        throw socket_error("Failed to bind socket!");
     }
 
     int flags = fcntl(m_fd, F_GETFL, 0);
@@ -160,7 +160,7 @@ uint16_t Socket::port() const
 {
     if(!is_valid())
     {
-        throw std::runtime_error("Cannot get port of non-existant socket");
+        throw socket_error("Cannot get port of non-existant socket");
     }
 
     return m_port;
@@ -178,7 +178,7 @@ bool Socket::connect(const Address& address, const std::string& name)
         m_is_ipv6 = address.IPv6;
         if(!create_fd())
         {
-            throw std::runtime_error(strerror(errno));
+            throw socket_error(strerror(errno));
         }
     }
     else
@@ -187,7 +187,7 @@ bool Socket::connect(const Address& address, const std::string& name)
 
         if(!bind_socket(my_addr))
         {
-            throw std::runtime_error(strerror(errno));
+            throw socket_error(strerror(errno));
         }
     }
 
@@ -231,7 +231,7 @@ std::vector<Socket*> Socket::accept()
 {
     if(!is_listening())
     {
-        throw std::runtime_error("Cannot accept on connected TcpSocket");
+        throw socket_error("Cannot accept on connected TcpSocket");
     }
 
     std::vector<Socket*> res;
@@ -263,7 +263,7 @@ std::vector<Socket*> Socket::accept()
                 close();
                 std::string str = "Failed to accept new connection; ";
                 str += strerror(errno);
-                throw std::runtime_error(str);
+                throw socket_error(str);
             }
             else
             {
@@ -389,7 +389,7 @@ void Socket::pull_messages()
         {
             if(!msg.data)
             {
-                throw std::runtime_error("Invalid state: message buffer not allocated");
+                throw socket_error("Invalid state: message buffer not allocated");
             }
 
             mempcpy(&msg.data[msg.read_pos - HEADER_SIZE], &m_buffer[m_buffer_pos], readlength);
@@ -400,7 +400,7 @@ void Socket::pull_messages()
 
         if(msg.read_pos > msg.length)
         {
-            throw std::runtime_error("Invalid message length");
+            throw socket_error("Invalid message length");
         }
 
         if(msg.read_pos == msg.length)
@@ -476,7 +476,7 @@ bool Socket::receive_data()
 
             // First close socket and then throw the error!
             close();
-            throw std::runtime_error(str);
+            throw socket_error(str);
         }
         }
 
@@ -494,7 +494,7 @@ std::optional<Socket::message_in_t> Socket::receive()
         auto res = get_message(msg);
         if(!res)
         {
-            throw std::runtime_error("failed to get message");
+            throw socket_error("failed to get message");
         }
         
         return { msg };
@@ -509,12 +509,12 @@ bool Socket::send(const message_out_t& message)
 {
     if(!is_valid())
     {
-        throw std::runtime_error("Cannot send data on invalid port");
+        throw socket_error("Cannot send data on invalid port");
     }
 
     if(message.length <= 0)
     {
-        throw std::runtime_error("Message size has to be > 0");
+        throw socket_error("Message size has to be > 0");
     }
 
     uint32_t sent = 0;
@@ -559,7 +559,7 @@ bool Socket::send(const message_out_t& message)
                 return false;
             default:
                 close();
-                throw std::runtime_error(strerror(errno));
+                throw socket_error(strerror(errno));
             }
         }
     }

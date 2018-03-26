@@ -81,7 +81,7 @@ void NetworkSocketListener::update()
                 this->on_network_message(*message);
             }
         }
-        catch (std::exception &e)
+        catch (const network::socket_error &e)
         {
             LOG(WARNING) << e.what();
             m_socket->close();

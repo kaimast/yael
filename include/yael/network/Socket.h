@@ -16,6 +16,22 @@ namespace yael
 namespace network
 {
 
+class socket_error : public std::exception
+{
+public:
+    socket_error(const std::string &msg)
+        : m_msg(msg)
+    {}
+
+    const char* what() const noexcept override
+    {
+        return m_msg.c_str();
+    }
+
+private:
+    const std::string m_msg;
+};
+
 typedef uint32_t msg_len_t;
 
 /**
