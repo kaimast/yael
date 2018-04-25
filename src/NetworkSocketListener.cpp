@@ -19,8 +19,11 @@ NetworkSocketListener::NetworkSocketListener(std::unique_ptr<network::Socket> &&
 
 void NetworkSocketListener::close_hook()
 {
-    auto &el = EventLoop::get_instance();
-    el.unregister_socket_listener(m_fileno);
+    if(EventLoop::is_initialized())
+    {
+        auto &el = EventLoop::get_instance();
+        el.unregister_socket_listener(m_fileno);
+    }
 }
 
 void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type)

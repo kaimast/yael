@@ -29,6 +29,8 @@ EventLoop::EventLoop(int32_t num_threads)
 
 EventLoop::~EventLoop()
 {
+    m_socket_listeners.clear();
+
     ::close(m_epoll_fd);
 }
 

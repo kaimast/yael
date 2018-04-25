@@ -84,6 +84,11 @@ public:
 
     void queue_event(std::shared_ptr<EventListener> l);
 
+    static bool is_initialized() 
+    {
+        return m_instance != nullptr;
+    }
+
 private:
     void run();
     
