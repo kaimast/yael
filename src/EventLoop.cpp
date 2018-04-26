@@ -17,20 +17,19 @@ using namespace yael;
 
 EventLoop::EventLoop(int32_t num_threads)
     : m_okay(true), m_has_time_events(false), m_epoll_fd(epoll_create1(0)),
-      m_event_semaphore(eventfd(0, EFD_NONBLOCK | EFD_SEMAPHORE)), m_num_threads(num_threads)
+      m_event_semaphore(eventfd(0, EFD_NONBLOCK | EFD_SEMAPHORE)), m_queued_events(0), m_num_threads(num_threads)
 {
     if(m_epoll_fd < 0)
     {
         LOG(FATAL) << "epoll_create1() failed: " << strerror(errno);
     }
 
-    register_socket(m_event_semaphore, EPOLLIN | EPOLLET);
+    register_socket(m_event_semaphore, nullptr, EPOLLIN | EPOLLET);
 }
 
 EventLoop::~EventLoop()
 {
-    m_socket_listeners.clear();
-
+    m_event_listeners.clear();
     ::close(m_epoll_fd);
 }
 
@@ -99,21 +98,27 @@ void EventLoop::register_time_event(uint64_t timeout, EventListenerPtr listener)
     m_time_events.emplace_back(std::pair<uint64_t, EventListenerPtr>{start, listener});
 }
 
-EventListenerPtr EventLoop::get_next_event()
+EventListener* EventLoop::get_next_event()
 {
-    std::lock_guard<std::mutex> lock_guard(m_queued_events_mutex);
-
     uint64_t buffer = 0;
     auto i = read(m_event_semaphore, reinterpret_cast<uint8_t*>(&buffer), sizeof(buffer));
+
     if(i <= 0)
     {
         return nullptr;
     }
-   
-    auto it = m_queued_events.begin();
-    auto listener = *it;
-    m_queued_events.erase(it);
-    return listener;
+
+    EventListener *ptr = nullptr;
+
+    bool res = m_queued_events.pop(ptr);
+
+    if(!res)
+    {
+        throw std::runtime_error("invalid state!");
+    }
+    
+    m_num_queued_events--;
+    return ptr;
 }
 
 uint64_t EventLoop::get_time() const
@@ -124,7 +129,7 @@ uint64_t EventLoop::get_time() const
     return std::chrono::duration_cast<std::chrono::milliseconds>(res.time_since_epoch()).count();
 }
 
-EventListenerPtr EventLoop::update()
+EventListener* EventLoop::update()
 {
     auto l = get_next_event();
 
@@ -175,15 +180,14 @@ EventListenerPtr EventLoop::update()
         LOG(FATAL) << "epoll_wait() returned an error: " << strerror(errno);
     }
 
-    std::unique_lock<std::mutex> event_listeners_lock(m_event_listeners_mutex);
-    
+   
     for(int32_t i = 0; i < nfds; ++i)
     {
-        auto fd = events[i].data.fd;
+        auto ptr = events[i].data.ptr;
 
-        if(fd == m_event_semaphore)
+        if(ptr == nullptr) // it's the event semaphore
         {
-            if(m_queued_events.size() > 1 || nfds > 1)
+            if(m_num_queued_events > 1 || nfds > 1)
             {
                 // wake up another thread to handle this
                 auto res = eventfd_write(m_event_semaphore, 0);
@@ -193,24 +197,17 @@ EventListenerPtr EventLoop::update()
                     throw std::runtime_error("eventfd error");
                 }
             }
-            
-            continue; //do nothing... event already queued
         }
-
-        auto it = m_socket_listeners.find(fd);
-
-        if(it == m_socket_listeners.end())
+        else
         {
-            DLOG(WARNING) << "Discarded event for fd " << fd << " as socket listner does not exist";
-            continue; // might just have been closed...
+            auto listener = reinterpret_cast<EventListener*>(ptr);
+            queue_event(*listener);
         }
-
-        auto listener = it->second;
-        queue_event(listener);
     }
 
-    if(!m_time_events.empty())
+    if(m_has_time_events)
     {
+        std::unique_lock<std::mutex> event_listeners_lock(m_event_listeners_mutex);
         auto current_time = get_time();
         auto it = m_time_events.begin();
         
@@ -221,7 +218,7 @@ EventListenerPtr EventLoop::update()
             if(start <= current_time)
             {
                 auto e = it->second;
-                queue_event(e);
+                queue_event(*e);
                 it = m_time_events.erase(it);
 
                 if(m_time_events.empty())
@@ -236,16 +233,14 @@ EventListenerPtr EventLoop::update()
         }
     }
 
-    event_listeners_lock.unlock();
-
     return update();
 }
 
-void EventLoop::queue_event(std::shared_ptr<EventListener> l)
+void EventLoop::queue_event(EventListener &l)
 {
-    std::lock_guard<std::mutex> lock_guard(m_queued_events_mutex);
-    m_queued_events.push_back(l);
-     
+    m_queued_events.push(&l);
+    m_num_queued_events++;
+    
     auto res = eventfd_write(m_event_semaphore, 1);
 
     if(res < 0)
@@ -254,7 +249,7 @@ void EventLoop::queue_event(std::shared_ptr<EventListener> l)
     }
 }
 
-void EventLoop::register_socket(int32_t fileno, int32_t flags)
+void EventLoop::register_socket(int32_t fileno, void *ptr, int32_t flags)
 {
     if(fileno <= 0)
     {
@@ -263,7 +258,7 @@ void EventLoop::register_socket(int32_t fileno, int32_t flags)
 
     struct epoll_event ev;
     ev.events = flags < 0 ? EPOLL_FLAGS : flags;
-    ev.data.fd = fileno;
+    ev.data.ptr = ptr;
 
     int res = epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fileno, &ev);
     if(res != 0)
@@ -283,37 +278,30 @@ void EventLoop::unregister_socket(int32_t fileno)
     (void)res; // ignore
 }
 
-void EventLoop::register_socket_listener(SocketListenerPtr listener)
+void EventLoop::register_event_listener(EventListenerPtr listener)
 {
     std::lock_guard<std::mutex> lock_guard(m_event_listeners_mutex);
-
-    auto fileno = listener->get_fileno();
-    auto res = m_socket_listeners.emplace(fileno, listener);
+    auto res = m_event_listeners.emplace(listener);
 
     if(!res.second)
     {
-        LOG(FATAL) << "Listener #" << fileno << " already registered";
-    }
-    else
-    {
-        register_socket(fileno);
+        LOG(FATAL) << "Listener already registered";
     }
 }
 
-void EventLoop::unregister_socket_listener(int32_t fileno)
+void EventLoop::unregister_event_listener(EventListenerPtr listener)
 {
     std::lock_guard<std::mutex> lock_guard(m_event_listeners_mutex);
 
-    auto it = m_socket_listeners.find(fileno);
+    auto it = m_event_listeners.find(listener);
 
-    if(it == m_socket_listeners.end())
+    if(it == m_event_listeners.end())
     {
-        LOG(FATAL) << "Listener #" << fileno << " already unregistered";
+        LOG(FATAL) << "Event listener already unregistered";
     }
     else
     {
-        unregister_socket(fileno);
-        m_socket_listeners.erase(it);
+        m_event_listeners.erase(it);
     }
 }
 

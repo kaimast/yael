@@ -2,11 +2,12 @@
 
 #include <thread>
 #include <stack>
-#include <unordered_map>
+#include <unordered_set>
 #include <mutex>
 #include <vector>
 #include <list>
 #include <stdint.h>
+#include <boost/lockfree/queue.hpp>
 
 #include "SocketListener.h"
 
@@ -27,20 +28,34 @@ public:
      */
     void wait();
 
-    /// Allocate a socket listener as a shared object
     template<typename T, typename... Args>
-    std::shared_ptr<T> allocate_socket_listener(Args&&... args)
+    std::shared_ptr<T> allocate_event_listener(Args&&... args)
     {
         return std::make_shared<T>(std::forward<Args>(args)...);
     }
+    
+    template<typename T, typename... Args>
+    std::shared_ptr<T> make_event_listener(Args&&... args)
+    {
+        auto l = std::make_shared<T>(std::forward<Args>(args)...);
+        this->register_event_listener(std::dynamic_pointer_cast<EventListener>(l));
+        return l;
+    }
 
-    // Same as allocate_* but also registers the listener
     template<typename T, typename... Args>
     std::shared_ptr<T> make_socket_listener(Args&&... args)
     {
         auto l = std::make_shared<T>(std::forward<Args>(args)...);
-        this->register_socket_listener(std::dynamic_pointer_cast<SocketListener>(l));
+        auto sl = std::dynamic_pointer_cast<SocketListener>(l);
+
+        this->register_socket_listener(sl);
         return l;
+    }
+
+    void register_socket_listener(SocketListenerPtr sl)
+    {
+        this->register_event_listener(sl);
+        this->register_socket(sl->get_fileno(), sl.get());
     }
 
     /**
@@ -79,10 +94,16 @@ public:
 
     uint64_t get_time() const;
 
-    void register_socket_listener(SocketListenerPtr listener);
-    void unregister_socket_listener(int32_t fileno);
+    void register_event_listener(EventListenerPtr listener);
+    void unregister_event_listener(EventListenerPtr listener);
 
-    void queue_event(std::shared_ptr<EventListener> l);
+    void unregister_socket_listener(SocketListenerPtr listener)
+    {
+        this->unregister_socket(listener->get_fileno());
+        this->unregister_event_listener(listener);
+    }
+
+    void queue_event(EventListener &l);
 
     static bool is_initialized() 
     {
@@ -92,14 +113,14 @@ public:
 private:
     void run();
     
-    EventListenerPtr update();
+    EventListener* update();
     
     void thread_loop();
 
-    void register_socket(int32_t fileno, int32_t flags = -1);
+    void register_socket(int32_t fileno, void *ptr, int32_t flags = -1);
     void unregister_socket(int32_t fileno);
 
-    EventListenerPtr get_next_event();
+    EventListener* get_next_event();
 
     /**
      * Constructor only called by initialize()
@@ -109,19 +130,22 @@ private:
 
     static EventLoop* m_instance;
 
-    bool m_okay;
+    std::atomic<bool> m_okay;
 
-    std::mutex m_event_listeners_mutex;
     std::mutex m_queued_events_mutex;
 
     std::list<std::thread> m_threads;
 
-    std::list<EventListenerPtr> m_queued_events;
+    boost::lockfree::queue<EventListener*> m_queued_events;
+    std::atomic<size_t> m_num_queued_events;
 
-    bool m_has_time_events;
+    std::atomic<bool> m_has_time_events;
 
-    std::vector<std::pair<uint64_t, EventListenerPtr>> m_time_events;
-    std::unordered_map<int32_t, SocketListenerPtr> m_socket_listeners;
+    std::mutex m_time_events_mutex;
+    std::list<std::pair<uint64_t, EventListenerPtr>> m_time_events;
+
+    std::mutex m_event_listeners_mutex;
+    std::unordered_set<EventListenerPtr> m_event_listeners;
 
     const int32_t m_epoll_fd;
     const int32_t m_event_semaphore;

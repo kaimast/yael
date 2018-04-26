@@ -22,7 +22,7 @@ void NetworkSocketListener::close_hook()
     if(EventLoop::is_initialized())
     {
         auto &el = EventLoop::get_instance();
-        el.unregister_socket_listener(m_fileno);
+        el.unregister_socket_listener(std::dynamic_pointer_cast<SocketListener>(shared_from_this()));
     }
 }
 
@@ -76,7 +76,7 @@ void NetworkSocketListener::update()
 
             if(more_messages)
             {
-                EventLoop::get_instance().queue_event(shared_from_this());
+                EventLoop::get_instance().queue_event(*this);
             }
 
             if(message)
