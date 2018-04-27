@@ -16,8 +16,8 @@ constexpr int32_t EPOLL_FLAGS = EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLET;
 using namespace yael;
 
 EventLoop::EventLoop(int32_t num_threads)
-    : m_okay(true), m_has_time_events(false), m_epoll_fd(epoll_create1(0)),
-      m_event_semaphore(eventfd(0, EFD_NONBLOCK | EFD_SEMAPHORE)), m_queued_events(0), m_num_threads(num_threads)
+    : m_okay(true), m_queued_events(0), m_has_time_events(false), m_epoll_fd(epoll_create1(0)),
+      m_event_semaphore(eventfd(0, EFD_NONBLOCK | EFD_SEMAPHORE)), m_num_threads(num_threads)
 {
     if(m_epoll_fd < 0)
     {
@@ -164,7 +164,7 @@ EventListener* EventLoop::update()
     if(!m_okay)
     {
         // Event loop was terminated
-        return {nullptr};
+        return nullptr;
     }
 
     if(nfds < 0)
@@ -174,7 +174,7 @@ EventListener* EventLoop::update()
         if(errno == EINTR || errno == EBADF)
         {
             stop();
-            return {nullptr};
+            return nullptr;
         }
 
         LOG(FATAL) << "epoll_wait() returned an error: " << strerror(errno);
