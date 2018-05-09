@@ -22,8 +22,7 @@ sudo pip3 install meson > /dev/null 2>&1
 export CC=gcc-7
 export CXX=g++-7
 
-git clone https://github.com/kaimast/yael.git
-cd yael
+rm -rf build # just in case we did copy the build directory
 meson build --prefix=$HOME/local/
 cd build
 meson configure -Dbuildtype=release

@@ -56,7 +56,7 @@ public:
         return is_valid() && m_socket->has_messages();
     }
 
-    bool send(const uint8_t *data, size_t length)
+    bool send(const uint8_t *data, size_t length) 
     {
         return m_socket->send(data, length);
     }

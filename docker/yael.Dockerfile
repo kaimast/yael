@@ -1,4 +1,6 @@
 FROM ubuntu:18.04
 
-COPY docker/setup-yael.sh /dep/setup-yael.sh
-RUN /dep/setup-yael.sh
+COPY . /yael
+WORKDIR /yael
+RUN ./docker/setup-yael.sh
+WORKDIR /yael/build
