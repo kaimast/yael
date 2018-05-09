@@ -4,17 +4,23 @@ compile_args = ['-Wall', '-std=c++17', '-Werror']
 
 incdir = include_directories('include')
 
-gtest = dependency('gtest')
-gmock = dependency('gmock')
-
-thread_dep = dependency('threads')
 cpp = meson.get_compiler('cpp')
+
+gtest_dep = dependency('gtest')
+gflags_dep = cpp.find_library('gflags')
+thread_dep = dependency('threads')
 log_dep = cpp.find_library('glog')
 
-yael = shared_library('yael', ['src/network/Socket.cpp', 'src/network/Address.cpp', 'src/NetworkSocketListener.cpp', 'src/EventLoop.cpp'], include_directories:[incdir], dependencies: [log_dep, thread_dep], install: true, cpp_args: compile_args)
+subdir('src')
+
+yael = shared_library('yael', yael_cpp_files, include_directories:[incdir], dependencies: [log_dep, thread_dep], install: true, cpp_args: compile_args)
 yael_dep = declare_dependency(link_with: yael)
 
 peerdb_bug = executable('test-peerdb-bug', ['test/peerdb_bug.cpp'], link_with: yael, dependencies: [log_dep, thread_dep], include_directories: [incdir], cpp_args: compile_args)
 many_clients = executable('test-many-clients', ['test/many_clients.cpp'],link_with: yael, dependencies: [log_dep, thread_dep], include_directories: [incdir], cpp_args: compile_args)
+
+subdir('test')
+
+executable('yael-test', test_cpp_files, link_with: yael, dependencies: [log_dep, thread_dep, gtest_dep, gflags_dep], include_directories: [incdir], cpp_args: compile_args)
 
 install_subdir('include/yael', install_dir : 'include')
