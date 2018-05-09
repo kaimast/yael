@@ -12,7 +12,7 @@ namespace yael
 
 // Like NetworkSocketListener but adds a delay
 // before sending data.
-class DelayedNetworkSocketListener
+class DelayedNetworkSocketListener : public NetworkSocketListener
 {
 private:
     class MessageSender: public EventListener
@@ -27,9 +27,12 @@ private:
             auto it = m_pending_messages.front();
             auto &[data, length] = it;
 
-            m_socket.send(data, length);
+            bool res = m_socket.send(data, length);
             delete []data;
             m_pending_messages.pop_front();
+
+            // FIXME not sure how to pass the result back to the app
+            (void)res;
         }
 
         void schedule(const uint8_t *data, size_t length, uint32_t delay)
@@ -53,6 +56,12 @@ public:
 
     bool send(const uint8_t *data, size_t length)
     {
+        if(m_delay == 0)
+        {
+            // default behaviour if no artificial delay specified
+            return NetworkSocketListener::send(data, length);
+        }
+
         m_sender->schedule(data, length, m_delay);
         return true;
     }
