@@ -1,5 +1,6 @@
-# Yet Another Event Loop
+[![Build Status](https://travis-ci.org/kaimast/yael.svg?branch=master)](https://travis-ci.org/kaimast/yael)
 
+# Yet Another Event Loop
 A very simple event loop for C++14 built on top of epoll.
 
 ## Building
