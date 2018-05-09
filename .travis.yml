@@ -25,8 +25,10 @@ jobs:
   - stage: test
     script:
     - docker pull $DOCKER_USERNAME/yael
+    - docker tag $DOCKER_USERNAME/yael yael
     - docker run --rm -it yael ../docker/run-clang-tidy.sh
   - stage: test
     script:
     - docker pull $DOCKER_USERNAME/yael
+    - docker tag $DOCKER_USERNAME/yael yael
     - docker run --rm -it -e run_test=unit_test yael ../docker/run-test.sh

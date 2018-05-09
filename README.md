@@ -1,11 +1,12 @@
 [![Build Status](https://travis-ci.org/kaimast/yael.svg?branch=master)](https://travis-ci.org/kaimast/yael)
 
 # Yet Another Event Loop
-A very simple event loop for C++14 built on top of epoll.
+A very simple event loop for modern C++ built on top of epoll.
 
 ## Building
-This requires the google, testing, mocking, and logging frameworks.
-For building you further need CMake, ninja, and a recent (=C++14) compiler.
+This project depends on the google, testing, mocking, and logging frameworks.
+
+For building you further need meson-build, ninja, and a recent (>= C++14) compiler.
 
 ## Usage
 To make your socket handler compatible with the event loop just use the SocketListener interface
