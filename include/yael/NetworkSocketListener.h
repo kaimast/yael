@@ -56,18 +56,13 @@ public:
         return is_valid() && m_socket->has_messages();
     }
 
+    bool send(const uint8_t *data, size_t length)
+    {
+        return m_socket->send(data, length);
+    }
+
 protected:
     void update() override;
-
-    network::Socket& socket()
-    {
-        return *m_socket;
-    }
-
-    const network::Socket& socket() const
-    {
-        return *m_socket;
-    }
 
 private:
     void close_hook();

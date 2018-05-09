@@ -166,9 +166,11 @@ void PeerHandler::send(const std::string &msg)
     LOG(INFO) << "Sending to Peer #" << m_identifier << ": " << msg;
     const uint8_t *data = reinterpret_cast<const uint8_t*>(msg.c_str());
     const uint32_t length = msg.size();
-    bool result = socket().send(data, length);
+    bool result = NetworkSocketListener::send(data, length);
     if (!result)
+    {
         throw std::runtime_error("Failed to send message to peer " + std::to_string(identifier()));
+    }
 }
 
 std::atomic<int> g_num_waiting;

@@ -96,7 +96,7 @@ void Peer::send(const std::string &msg)
 {
     const uint8_t *data = reinterpret_cast<const uint8_t*>(msg.c_str());
     const uint32_t length = msg.size();
-    bool result = socket().send(data, length);
+    bool result = NetworkSocketListener::send(data, length);
     if (!result)
         throw std::runtime_error("Failed to send message");
 }
