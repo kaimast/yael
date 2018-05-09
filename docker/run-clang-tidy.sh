@@ -8,7 +8,7 @@ export PYTHONPATH=${HOME}/local/lib/python3.6/site-packages
 
 cd ..
 
-export TIDY=clang-tidy-5.0
+export TIDY=clang-tidy-6.0
 
 function clang_tidy_works {
     if ! hash $TIDY 2> /dev/null; then
@@ -23,8 +23,8 @@ if ! clang_tidy_works; then
     exit 0
 fi
 
-export CC=clang-5.0
-export CXX=clang++-5.0
+export CC=clang-6.0
+export CXX=clang++-6.0
 
 output_dir=clang-tidy
 if [[ "$1" != "tidy-only" ]]; then

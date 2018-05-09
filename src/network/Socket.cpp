@@ -387,7 +387,7 @@ void Socket::pull_messages()
 
         if(readlength > 0)
         {
-            if(!msg.data)
+            if(msg.data == nullptr)
             {
                 throw socket_error("Invalid state: message buffer not allocated");
             }

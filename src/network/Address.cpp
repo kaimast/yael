@@ -15,7 +15,7 @@ Address::Address(const sockaddr_in6& addr)
 {
     char ipAsString[INET6_ADDRSTRLEN];
 
-    if (!inet_ntop( AF_INET6, &addr.sin6_addr, &ipAsString[0], 25))
+    if(inet_ntop( AF_INET6, &addr.sin6_addr, &ipAsString[0], 25) == nullptr)
     {
         throw std::runtime_error("invalid sock address");
     }
@@ -29,7 +29,7 @@ Address::Address(const sockaddr_in& addr)
 {
     char ipAsString[INET_ADDRSTRLEN];
 
-    if (!inet_ntop( AF_INET, &addr.sin_addr, &ipAsString[0], 16))
+    if(inet_ntop( AF_INET, &addr.sin_addr, &ipAsString[0], 16) == nullptr)
     {
         throw std::runtime_error("invalid sock address");
     }

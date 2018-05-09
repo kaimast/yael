@@ -37,7 +37,7 @@ EventLoop* EventLoop::m_instance = nullptr;
 
 void EventLoop::initialize(int32_t num_threads) 
 {
-    if(m_instance)
+    if(m_instance != nullptr)
     {
         return;  // already initialized
     }
@@ -48,7 +48,7 @@ void EventLoop::initialize(int32_t num_threads)
 
 void EventLoop::destroy()
 {
-    if(!m_instance)
+    if(m_instance == nullptr)
     {
         throw std::runtime_error("Instance does not exist.");
     }
@@ -133,7 +133,7 @@ EventListener* EventLoop::update()
 {
     auto l = get_next_event();
 
-    if(l)
+    if(l != nullptr)
     {
         return l;
     }
@@ -312,7 +312,7 @@ void EventLoop::thread_loop()
     {
         auto listener = update();
 
-        if(!listener)
+        if(listener == nullptr)
         {
             // terminate
             return;
