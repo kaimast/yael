@@ -308,16 +308,18 @@ void Socket::close()
         return;
     }
 
-    if(m_close_hook)
-    {
-        m_close_hook();
-    }
-
     int i = ::close(m_fd);
     (void)i; //unused
     m_fd = -1;
     m_buffer_size = 0;
     m_buffer_pos = -1;
+
+    // Invoke close hook after destroying the filedescriptor
+    // so that we don't call close a second time
+    if(m_close_hook)
+    {
+        m_close_hook();
+    }
 }
 
 bool Socket::get_message(message_in_t& message)

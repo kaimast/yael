@@ -8,11 +8,31 @@ export PYTHONPATH=${HOME}/local/lib/python3.6/site-packages:${HOME}/local/lib/py
 set -e
 set -x
 
+multi_client_test() {
+    ./multi-client-test listen 44444 > /dev/null &
+    sleep 1
+    ./multi-client-test connect localhost 44444 20 0
+    killall -9 multi-client-test
+}
+
+multi_client_delayed_test() {
+    ./multi-client-test listen 44444 > /dev/null &
+    sleep 1
+    ./multi-client-test connect localhost 44444 20 500
+    killall -9 multi-client-test
+}
+
 case $run_test in
     unit_test)
         ./yael-test
         ;;
-    *)
+    multi_client)
+        multi_client_test
+        ;;
+    multi_client_delayed)
+        multi_client_delayed_test
+        ;;
+        *)
         echo unknown run_test=$run_test
         exit 1
         ;;

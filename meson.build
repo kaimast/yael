@@ -17,7 +17,7 @@ yael = shared_library('yael', yael_cpp_files, include_directories:[incdir], depe
 yael_dep = declare_dependency(link_with: yael)
 
 peerdb_bug = executable('test-peerdb-bug', ['test/peerdb_bug.cpp'], link_with: yael, dependencies: [log_dep, thread_dep], include_directories: [incdir], cpp_args: compile_args)
-many_clients = executable('test-many-clients', ['test/many_clients.cpp'],link_with: yael, dependencies: [log_dep, thread_dep], include_directories: [incdir], cpp_args: compile_args)
+many_clients = executable('multi-client-test', ['test/multi_client.cpp'],link_with: yael, dependencies: [log_dep, thread_dep], include_directories: [incdir], cpp_args: compile_args)
 
 subdir('test')
 

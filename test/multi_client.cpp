@@ -25,7 +25,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
-#include "yael/NetworkSocketListener.h"
+
+#include "yael/DelayedNetworkSocketListener.h"
 #include "yael/EventLoop.h"
 
 using namespace yael;
@@ -40,11 +41,11 @@ protected:
     void on_new_connection(std::unique_ptr<yael::network::Socket> &&socket) override;
 };
 
-class Peer : public yael::NetworkSocketListener
+class Peer : public yael::DelayedNetworkSocketListener
 {
 public:
-    Peer(const std::string &host, uint16_t port);
-    Peer(std::unique_ptr<yael::network::Socket> &&s);
+    Peer(const std::string &host, uint16_t port, uint32_t delay);
+    Peer(std::unique_ptr<yael::network::Socket> &&s, uint32_t delay = 0);
     void send(const std::string &msg);
     bool done = false;
 
@@ -69,25 +70,31 @@ Acceptor::Acceptor(uint16_t port)
     auto socket = new yael::network::Socket();
     bool res = socket->listen(host, port, 100);
     if(!res)
+    {
         throw std::runtime_error("socket->listen failed");
+    }
+
     yael::NetworkSocketListener::set_socket(std::unique_ptr<network::Socket>{socket}, yael::SocketType::Acceptor);
     LOG(INFO) << "Listening for peers on host " << host << " port " << port;
 }
 
-Peer::Peer(const std::string &host, uint16_t port)
-    : yael::NetworkSocketListener(nullptr, yael::SocketType::Connection)
+Peer::Peer(const std::string &host, uint16_t port, uint32_t delay)
+    : yael::DelayedNetworkSocketListener(delay, nullptr, yael::SocketType::Connection)
 {
     auto sock = new yael::network::Socket();
     auto addr = yael::network::resolve_URL(host, port);
     bool success = sock->connect(addr);
     if (!success)
+    {
         throw std::runtime_error("Failed to connect to other server");
+    }
+
     NetworkSocketListener::set_socket(std::unique_ptr<network::Socket>{sock}, SocketType::Connection);
     LOG(INFO) << "connected to " << host << ":" << port;
 }
 
-Peer::Peer(std::unique_ptr<yael::network::Socket> &&s)
-    : yael::NetworkSocketListener(std::forward<std::unique_ptr<yael::network::Socket>>(s), yael::SocketType::Connection)
+Peer::Peer(std::unique_ptr<yael::network::Socket> &&s, uint32_t delay)
+    : yael::DelayedNetworkSocketListener(delay, std::forward<std::unique_ptr<yael::network::Socket>>(s), yael::SocketType::Connection)
 {
     LOG(INFO) << "new peer connected";
 }
@@ -98,15 +105,20 @@ void Peer::send(const std::string &msg)
     const uint32_t length = msg.size();
     bool result = NetworkSocketListener::send(data, length);
     if (!result)
+    {
         throw std::runtime_error("Failed to send message");
+    }
 }
 
 void Peer::on_network_message(yael::network::Socket::message_in_t &msg)
 {
     std::string message = to_string(msg);
     LOG(INFO) << "got message: " << message;
+
     if (message == "ping")
+    {
         send("pong");
+    }
     else if (message == "pong")
     {
         std::this_thread::sleep_for(10ms);
@@ -120,7 +132,7 @@ void stop_handler(int)
     yael::EventLoop::get_instance().stop();
 }
 
-void do_child(const std::string &host, uint16_t port)
+void do_child(const std::string &host, uint16_t port, uint32_t delay)
 {
     FLAGS_logbufsecs = 0; 
     FLAGS_logbuflevel = google::GLOG_INFO;
@@ -132,31 +144,30 @@ void do_child(const std::string &host, uint16_t port)
     signal(SIGSTOP, stop_handler);
     signal(SIGTERM, stop_handler);
 
-    std::thread t([&host, port] {
-        std::this_thread::sleep_for(100ms);
-        auto &el = EventLoop::get_instance();
-        auto c = el.make_socket_listener<Peer>(host, port);
-        c->send("ping");
-        while (!c->done)
-            std::this_thread::sleep_for(10ms);
-        el.stop();
-    });
+    auto &el = EventLoop::get_instance();
+    auto c = event_loop.make_socket_listener<Peer>(host, port, delay);
 
+    c->send("ping");
+    while (!c->done)
+    {
+        std::this_thread::sleep_for(10ms);
+    }
+    el.stop();
+    
     event_loop.wait();
     event_loop.destroy();
-    t.join();
 }
 
 void do_connect(int argc, char** argv)
 {
     (void)argc;
-    (void)argv;
 
     const std::string &host = argv[2];
     const uint16_t port = std::atoi(argv[3]);
-    const int num = std::atoi(argv[4]);
+    const int num_children = std::atoi(argv[4]);
+    const uint32_t delay = std::atoi(argv[4]);
     
-    for (int i = 0; i < num; ++i)
+    for (int i = 0; i < num_children; ++i)
     {
         pid_t pid = fork();
         if (pid < 0)
@@ -166,21 +177,25 @@ void do_connect(int argc, char** argv)
         }
         else if (pid == 0)
         {
-            do_child(host, port);
+            do_child(host, port, delay);
             exit(0);
         }
     }
 
     bool ok = true;
-    for (int i = 0; i < num; ++i)
+    for (int i = 0; i < num_children; ++i)
     {
         int status;
         pid_t pid = wait(&status);
         ok = ok && status == 0;
-        printf("[%d/%d] Child with PID %ld exited with status 0x%x.\n", i+1, num, (long)pid, status);
+
+        std::cout << "[" << i+1 << "/" <<num_children << "] Child with PID " << (long)pid << " exited with status 0x" << status << "." << std::endl;
     }
+
     if (ok)
+    {
         puts("All Done!");
+    }
     else
     {
         puts("Failed!");
@@ -212,8 +227,8 @@ void do_listen(int argc, char** argv)
 void print_help()
 {
     std::cout << "usage: " << std::endl
-              << "   ./mutex-assert-bug listen  <listen-port>" << std::endl
-              << "   ./mutex-assert-bug connect <upstream-host> <upstream-port> <num_connection>" << std::endl
+              << "   ./multi-client-test listen  <listen-port>" << std::endl
+              << "   ./multi-client-test connect <upstream-host> <upstream-port> <num_connection>" << std::endl
               << std::endl;
     exit(1);
 }
@@ -221,11 +236,19 @@ void print_help()
 int main(int argc, char** argv)
 {
     if (argc < 3)
+    {
         print_help();
+    }
     if (!strcmp(argv[1], "listen") && argc == 3)
+    {
         do_listen(argc, argv);
-    else if (!strcmp(argv[1], "connect") && argc == 5)
+    }
+    else if (!strcmp(argv[1], "connect") && argc == 6)
+    {
         do_connect(argc, argv);
+    }
     else
+    {
         print_help();
+    }
 }

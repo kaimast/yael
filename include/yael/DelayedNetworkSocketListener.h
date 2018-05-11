@@ -35,12 +35,7 @@ private:
             (void)res;
         }
 
-        void schedule(const uint8_t *data, size_t length, uint32_t delay)
-        {   
-            auto copy = new uint8_t[length];
-            memcpy(copy, data, length);
-            m_pending_messages.emplace_back(std::pair{copy, length});
-        }
+        void schedule(const uint8_t *data, size_t length, uint32_t delay);
 
     private:
         std::list<std::pair<uint8_t*, size_t>> m_pending_messages;
@@ -48,9 +43,7 @@ private:
     };
 
 public:
-    DelayedNetworkSocketListener(uint32_t delay)
-        : m_delay(delay)
-    {}
+    DelayedNetworkSocketListener(uint32_t delay);
 
     DelayedNetworkSocketListener(uint32_t delay, std::unique_ptr<network::Socket> &&socket, SocketType type);
 
@@ -66,9 +59,12 @@ public:
         return true;
     }
 
+protected:
+    virtual void set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type) override;
+
 private:
     std::shared_ptr<MessageSender> m_sender;
-    uint32_t m_delay;
+    const uint32_t m_delay;
 };
 
 }

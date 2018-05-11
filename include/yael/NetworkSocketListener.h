@@ -29,13 +29,6 @@ public:
     virtual ~NetworkSocketListener() = default;
 
     /**
-     * @brief Hand a valid socket to the listener
-     * @param socket the socket
-     * @throw std::runtime_error if there is already a socket assigned to this listener
-     */
-    void set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type);
-
-    /**
      * @brief get the current or most recent fileno associated with this listener
      * @return -1 if there was never a valid Socket associated with this listener
      */
@@ -62,6 +55,13 @@ public:
     }
 
 protected:
+    /**
+     * @brief Hand a valid socket to the listener
+     * @param socket the socket
+     * @throw std::runtime_error if there is already a socket assigned to this listener
+     */
+    virtual void set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type);
+
     void update() override;
 
 private:

@@ -21,8 +21,10 @@ void NetworkSocketListener::close_hook()
 {
     if(EventLoop::is_initialized())
     {
+        lock();
         auto &el = EventLoop::get_instance();
         el.unregister_socket_listener(std::dynamic_pointer_cast<SocketListener>(shared_from_this()));
+        unlock();
     }
 }
 
