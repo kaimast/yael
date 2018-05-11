@@ -70,6 +70,9 @@ public:
      */
     bool is_okay() const;
 
+    /**
+     * Scheduled event listener to be called in <timeout> ms
+     */
     void register_time_event(uint64_t timeout, EventListenerPtr listener);
     
     /**
@@ -92,6 +95,9 @@ public:
      */
     static void destroy();
 
+    /**
+     * Get relative local time (in milliseconds)
+     */
     uint64_t get_time() const;
 
     void register_event_listener(EventListenerPtr listener);

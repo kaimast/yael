@@ -89,7 +89,7 @@ Peer::Peer(const std::string &host, uint16_t port, uint32_t delay)
         throw std::runtime_error("Failed to connect to other server");
     }
 
-    NetworkSocketListener::set_socket(std::unique_ptr<network::Socket>{sock}, SocketType::Connection);
+    set_socket(std::unique_ptr<network::Socket>{sock}, SocketType::Connection);
     LOG(INFO) << "connected to " << host << ":" << port;
 }
 
@@ -103,7 +103,7 @@ void Peer::send(const std::string &msg)
 {
     const uint8_t *data = reinterpret_cast<const uint8_t*>(msg.c_str());
     const uint32_t length = msg.size();
-    bool result = NetworkSocketListener::send(data, length);
+    bool result = DelayedNetworkSocketListener::send(data, length);
     if (!result)
     {
         throw std::runtime_error("Failed to send message");
@@ -165,8 +165,10 @@ void do_connect(int argc, char** argv)
     const std::string &host = argv[2];
     const uint16_t port = std::atoi(argv[3]);
     const int num_children = std::atoi(argv[4]);
-    const uint32_t delay = std::atoi(argv[4]);
-    
+    const uint32_t delay = std::atoi(argv[5]);
+
+    auto start = std::chrono::steady_clock::now();
+
     for (int i = 0; i < num_children; ++i)
     {
         pid_t pid = fork();
@@ -194,13 +196,26 @@ void do_connect(int argc, char** argv)
 
     if (ok)
     {
-        puts("All Done!");
+        std::cerr << "All Done!" << std::endl;
     }
     else
     {
-        puts("Failed!");
-        exit(1);
+        std::cerr << "Failed!" << std::endl;
+        exit(-1);
     }
+
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds> 
+                                    (std::chrono::steady_clock::now() - start).count();
+
+    std::cout << "Duration was " << duration << " ms" << std::endl;
+
+    if(duration < delay)
+    {
+        std::cerr << "Duration shorter than delay" << std::endl;
+        exit(-1);
+    }
+
+    exit(0);
 }
 
 void do_listen(int argc, char** argv)
@@ -228,7 +243,7 @@ void print_help()
 {
     std::cout << "usage: " << std::endl
               << "   ./multi-client-test listen  <listen-port>" << std::endl
-              << "   ./multi-client-test connect <upstream-host> <upstream-port> <num_connection>" << std::endl
+              << "   ./multi-client-test connect <upstream-host> <upstream-port> <num_connection> <delay>" << std::endl
               << std::endl;
     exit(1);
 }

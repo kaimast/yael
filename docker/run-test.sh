@@ -18,7 +18,7 @@ multi_client_test() {
 multi_client_delayed_test() {
     ./multi-client-test listen 44444 > /dev/null &
     sleep 1
-    ./multi-client-test connect localhost 44444 20 500
+    ./multi-client-test connect localhost 44444 20 2000
     killall -9 multi-client-test
 }
 

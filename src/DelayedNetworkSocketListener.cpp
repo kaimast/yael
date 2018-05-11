@@ -14,7 +14,7 @@ DelayedNetworkSocketListener::DelayedNetworkSocketListener(uint32_t delay, std::
 {
     if(socket)
     {
-        NetworkSocketListener::set_socket(std::forward<std::unique_ptr<network::Socket>>(socket), type);
+        set_socket(std::forward<std::unique_ptr<network::Socket>>(socket), type);
     }
 }
 
@@ -24,8 +24,10 @@ void DelayedNetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &
     {
         auto &el = EventLoop::get_instance();
         m_sender = el.make_event_listener<MessageSender>(*socket);
-    }
 
+        DLOG(INFO) << "Created delayed socket with " << m_delay << " ms delay";
+    }
+        
     NetworkSocketListener::set_socket(std::move(socket), type);
 }
 
