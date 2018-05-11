@@ -14,7 +14,7 @@ DelayedNetworkSocketListener::DelayedNetworkSocketListener(uint32_t delay, std::
 {
     if(socket)
     {
-        set_socket(std::forward<std::unique_ptr<network::Socket>>(socket), type);
+        DelayedNetworkSocketListener::set_socket(std::forward<std::unique_ptr<network::Socket>>(socket), type);
     }
 }
 
