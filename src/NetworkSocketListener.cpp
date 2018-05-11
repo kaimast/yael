@@ -13,7 +13,7 @@ NetworkSocketListener::NetworkSocketListener(std::unique_ptr<network::Socket> &&
 {
     if(socket)
     {
-        set_socket(std::forward<std::unique_ptr<network::Socket>>(socket), type);
+        NetworkSocketListener::set_socket(std::forward<std::unique_ptr<network::Socket>>(socket), type);
     }
 }
 

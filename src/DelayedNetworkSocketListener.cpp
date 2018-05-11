@@ -5,13 +5,17 @@ namespace yael
 {
 
 DelayedNetworkSocketListener::DelayedNetworkSocketListener(uint32_t delay)
-    : NetworkSocketListener(), m_delay(delay)
+    : m_delay(delay)
 {
 }
 
 DelayedNetworkSocketListener::DelayedNetworkSocketListener(uint32_t delay, std::unique_ptr<network::Socket> &&socket, SocketType type)
-    : NetworkSocketListener(std::move(socket), type), m_delay(delay)
+    : m_delay(delay)
 {
+    if(socket)
+    {
+        NetworkSocketListener::set_socket(std::forward<std::unique_ptr<network::Socket>>(socket), type);
+    }
 }
 
 void DelayedNetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type)
