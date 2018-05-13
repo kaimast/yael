@@ -1,6 +1,6 @@
 #include <thread>
 #include <gtest/gtest.h>
-#include <yael/network/Socket.h>
+#include <yael/network/TcpSocket.h>
 
 using namespace yael::network;
 
@@ -12,7 +12,7 @@ static uint8_t* data_received = nullptr;
 
 static void receive_data()
 {
-    Socket socket;
+    TcpSocket socket;
 
     bool connected = socket.connect(addr);
     ASSERT_TRUE(connected);
@@ -40,7 +40,7 @@ class SocketAsyncTest : public testing::Test
 
 TEST(SocketAsyncTest, send_large_chunk)
 {
-    Socket socket;
+    TcpSocket socket;
 
     bool listening = socket.listen(addr.IP, addr.PortNumber, 10);
     ASSERT_TRUE(listening);

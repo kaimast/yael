@@ -30,6 +30,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
+#include "yael/network/TcpSocket.h"
 #include "yael/NetworkSocketListener.h"
 #include "yael/EventLoop.h"
 
@@ -133,11 +135,13 @@ PeerHandler::PeerHandler(const std::string &host, uint16_t port)
 {
     LOG(INFO) << "Connecting to host " << host << " port " << port;
     new Peer(m_identifier);
-    auto sock = new yael::network::Socket();
+    auto sock = new yael::network::TcpSocket();
     auto addr = yael::network::resolve_URL(host, port);
     const bool success = sock->connect(addr);
     if(!success)
+    {
         throw std::runtime_error("Failed to connect to other server");
+    }
     
     NetworkSocketListener::set_socket(std::unique_ptr<network::Socket>{sock}, SocketType::Connection);
 }
@@ -197,10 +201,14 @@ void PeerHandler::on_network_message(network::Socket::message_in_t &pair)
 void PeerAcceptor::listen(uint16_t port)
 {
     const std::string host = "0.0.0.0";
-    auto socket = new yael::network::Socket();
+    auto socket = new yael::network::TcpSocket();
     bool res = socket->listen(host, port, 100);
+    
     if(!res)
+    {
         throw std::runtime_error("socket->listen failed");
+    }
+
     yael::NetworkSocketListener::set_socket(std::unique_ptr<network::Socket>{socket}, yael::SocketType::Acceptor);
     LOG(INFO) << "Listening for peers on host " << host << " port " << port;
 }

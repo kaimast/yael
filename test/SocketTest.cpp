@@ -1,6 +1,6 @@
 #include <thread>
 #include <gtest/gtest.h>
-#include <yael/network/Socket.h>
+#include <yael/network/TcpSocket.h>
 
 using namespace yael::network;
 
@@ -34,7 +34,7 @@ protected:
         delete m_peer_socket;
     }
 
-    Socket m_socket1, m_socket2;
+    TcpSocket m_socket1, m_socket2;
     Socket *m_peer_socket;
 
 };

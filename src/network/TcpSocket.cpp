@@ -1,4 +1,4 @@
-#include "yael/network/Socket.h"
+#include "yael/network/TcpSocket.h"
 
 #include <sstream>
 #include <fcntl.h>
@@ -28,14 +28,14 @@ namespace network
 constexpr int TRUE_FLAG = 1;
 constexpr msg_len_t HEADER_SIZE = sizeof(msg_len_t);
 
-Socket::Socket()
+TcpSocket::TcpSocket()
     : m_port(0), m_is_ipv6(false), m_fd(-1),
       m_buffer_pos(-1), m_buffer_size(0), m_listening(false),
       m_has_current_message(false)
 {
 }
 
-Socket::Socket(int fd)
+TcpSocket::TcpSocket(int fd)
     : m_port(0), m_is_ipv6(false), m_fd(fd),
       m_buffer_pos(-1), m_buffer_size(0), m_listening(false),
       m_has_current_message(false)
@@ -48,17 +48,17 @@ Socket::Socket(int fd)
     calculate_client_address();
 }
 
-Socket::~Socket()
+TcpSocket::~TcpSocket()
 {
     close();
 }
 
-void Socket::set_close_hook(std::function<void()> func)
+void TcpSocket::set_close_hook(std::function<void()> func)
 {
     m_close_hook = func;
 }
 
-bool Socket::create_fd()
+bool TcpSocket::create_fd()
 {
     if(m_is_ipv6)
     {
@@ -79,7 +79,7 @@ bool Socket::create_fd()
     return true;
 }
 
-void Socket::update_port_number()
+void TcpSocket::update_port_number()
 {
     if(m_is_ipv6)
     {
@@ -97,7 +97,7 @@ void Socket::update_port_number()
     }
 }
 
-bool Socket::bind_socket(const Address& address)
+bool TcpSocket::bind_socket(const Address& address)
 {
     m_is_ipv6 = address.IPv6;
 
@@ -134,7 +134,7 @@ bool Socket::bind_socket(const Address& address)
     return true;
 }
 
-bool Socket::listen(const Address& address, uint32_t backlog)
+bool TcpSocket::listen(const Address& address, uint32_t backlog)
 {
     if(!bind_socket(address))
     {
@@ -156,7 +156,7 @@ bool Socket::listen(const Address& address, uint32_t backlog)
     }
 }
 
-uint16_t Socket::port() const
+uint16_t TcpSocket::port() const
 {
     if(!is_valid())
     {
@@ -166,7 +166,7 @@ uint16_t Socket::port() const
     return m_port;
 }
 
-bool Socket::connect(const Address& address, const std::string& name)
+bool TcpSocket::connect(const Address& address, const std::string& name)
 {
     if(address.PortNumber == 0)
     {
@@ -227,11 +227,11 @@ bool Socket::connect(const Address& address, const std::string& name)
     return true;
 }
 
-std::vector<Socket*> Socket::accept()
+std::vector<Socket*> TcpSocket::accept()
 {
     if(!is_listening())
     {
-        throw socket_error("Cannot accept on connected TcpSocket");
+        throw socket_error("Cannot accept on connected TcpTcpSocket");
     }
 
     std::vector<Socket*> res;
@@ -272,17 +272,17 @@ std::vector<Socket*> Socket::accept()
         }
         else
         {
-            res.push_back(new Socket(s));
+            res.push_back(new TcpSocket(s));
         }
     }
 }
 
-const Address& Socket::get_client_address() const
+const Address& TcpSocket::get_client_address() const
 {
     return m_client_address;
 }
 
-void Socket::calculate_client_address()
+void TcpSocket::calculate_client_address()
 {
     char ipstring[16];
     sockaddr_in sin;
@@ -301,7 +301,7 @@ void Socket::calculate_client_address()
     m_client_address.PortNumber = port;
 }
 
-void Socket::close()
+void TcpSocket::close()
 {
     if(m_fd < 0)
     {
@@ -322,7 +322,7 @@ void Socket::close()
     }
 }
 
-bool Socket::get_message(message_in_t& message)
+bool TcpSocket::get_message(message_in_t& message)
 {
     if(!has_messages())
     {
@@ -337,7 +337,7 @@ bool Socket::get_message(message_in_t& message)
     return true;
 }
 
-void Socket::pull_messages() 
+void TcpSocket::pull_messages() 
 {
     bool received_full_msg = false;
 
@@ -430,7 +430,7 @@ void Socket::pull_messages()
     pull_messages();
 }
 
-bool Socket::receive_data() 
+bool TcpSocket::receive_data() 
 {
     if(!is_valid())
     {
@@ -486,7 +486,7 @@ bool Socket::receive_data()
     }
 }
 
-std::optional<Socket::message_in_t> Socket::receive()
+std::optional<TcpSocket::message_in_t> TcpSocket::receive()
 {
     pull_messages();
 
@@ -507,7 +507,7 @@ std::optional<Socket::message_in_t> Socket::receive()
     }
 }
 
-bool Socket::send(const message_out_t& message)
+bool TcpSocket::send(const message_out_t& message)
 {
     if(!is_valid())
     {
