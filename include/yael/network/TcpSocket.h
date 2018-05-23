@@ -28,8 +28,6 @@ public:
     TcpSocket();
     ~TcpSocket();
 
-    void set_close_hook(std::function<void()> func);
-
     std::vector<Socket*> accept() override;
 
     bool has_messages() const override;
@@ -84,8 +82,6 @@ protected:
     //! Initialize and bind the socket
     //! Only used by connect() and listen()
     bool bind_socket(const Address& address);
-
-    std::function<void()> m_close_hook;
 
     //! Port used on our side of the connection
     uint16_t m_port;

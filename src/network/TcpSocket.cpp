@@ -58,11 +58,6 @@ bool TcpSocket::has_messages() const
     return m_slicer->has_messages();
 }
 
-void TcpSocket::set_close_hook(std::function<void()> func)
-{
-    m_close_hook = func;
-}
-
 bool TcpSocket::create_fd()
 {
     if(m_is_ipv6)
@@ -320,13 +315,6 @@ void TcpSocket::close()
     m_fd = -1;
 
     m_slicer->buffer().reset();
-
-    // Invoke close hook after destroying the filedescriptor
-    // so that we don't call close a second time
-    if(m_close_hook)
-    {
-        m_close_hook();
-    }
 }
 
 void TcpSocket::pull_messages() 

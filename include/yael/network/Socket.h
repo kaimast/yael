@@ -88,8 +88,6 @@ public:
 
     virtual ~Socket() = default;
 
-    virtual void set_close_hook(std::function<void()> func) = 0;
-
     //! Accept new connections
     virtual std::vector<Socket*> accept() = 0;
 

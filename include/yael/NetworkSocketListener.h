@@ -57,6 +57,7 @@ public:
     void close_socket()
     {
         m_socket->close();
+        on_disconnect();
     }
 
 protected:
