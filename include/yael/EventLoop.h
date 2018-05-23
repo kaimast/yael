@@ -14,7 +14,7 @@
 namespace yael
 {
 
-class EventListenerHandle;
+struct EventListenerHandle;
 
 /**
  * @brief The main EventLoop class

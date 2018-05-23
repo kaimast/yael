@@ -7,9 +7,7 @@ namespace yael
 namespace network
 {
 
-TlsSocket::TlsSocket()
-{
-}
+TlsSocket::TlsSocket() = default;
 
 TlsSocket::TlsSocket(int32_t fd)
     : TcpSocket(fd)

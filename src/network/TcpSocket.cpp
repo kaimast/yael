@@ -50,7 +50,7 @@ TcpSocket::TcpSocket(int fd)
 
 TcpSocket::~TcpSocket()
 {
-    close();
+    TcpSocket::close();
 }
 
 bool TcpSocket::has_messages() const
