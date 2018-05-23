@@ -13,6 +13,38 @@ namespace yael
 namespace network
 {
 
+enum class SocketType
+{
+    TCP,
+    TLS
+};
+
+//! For internal use only
+struct buffer_t
+{
+    static constexpr int32_t MAX_SIZE = 4096;
+
+    uint8_t data[MAX_SIZE];
+    int32_t position;
+    uint32_t size;
+
+    void reset()
+    {
+        size = 0;
+        position = -1;
+    }
+
+    bool is_valid() const
+    {
+        return size > 0;
+    }
+
+    bool at_end() const
+    {
+        return position >= static_cast<int32_t>(size);
+    }
+};
+
 class socket_error : public std::exception
 {
 public:

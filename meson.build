@@ -3,6 +3,8 @@ project('yael', 'cpp')
 compile_args = ['-Wall', '-std=c++17', '-Werror']
 
 incdir = include_directories('include')
+botan_dir = include_directories('/usr/include/botan-2')
+
 
 cpp = meson.get_compiler('cpp')
 
@@ -10,10 +12,11 @@ gtest_dep = dependency('gtest')
 gflags_dep = cpp.find_library('gflags')
 thread_dep = dependency('threads')
 log_dep = cpp.find_library('glog')
+botan_dep = cpp.find_library('botan-2')
 
 subdir('src')
 
-yael = shared_library('yael', yael_cpp_files, include_directories:[incdir], dependencies: [log_dep, thread_dep], install: true, cpp_args: compile_args)
+yael = shared_library('yael', yael_cpp_files, include_directories:[incdir, botan_dir], dependencies: [log_dep, thread_dep, botan_dep], install: true, cpp_args: compile_args)
 yael_dep = declare_dependency(link_with: yael)
 
 peerdb_bug = executable('test-peerdb-bug', ['test/peerdb_bug.cpp'], link_with: yael, dependencies: [log_dep, thread_dep], include_directories: [incdir], cpp_args: compile_args)

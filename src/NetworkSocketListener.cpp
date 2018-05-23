@@ -17,15 +17,15 @@ NetworkSocketListener::NetworkSocketListener(std::unique_ptr<network::Socket> &&
     }
 }
 
-void NetworkSocketListener::close_hook()
+std::unique_ptr<network::Socket> NetworkSocketListener::release_socket()
 {
-    if(EventLoop::is_initialized())
-    {
-        lock();
-        auto &el = EventLoop::get_instance();
-        el.unregister_socket_listener(std::dynamic_pointer_cast<SocketListener>(shared_from_this()));
-        unlock();
-    }
+    // Move socket before we unregister so socket doesn't get closed
+    auto sock = std::move(m_socket);
+
+    auto &el = EventLoop::get_instance();
+    el.unregister_socket_listener(std::dynamic_pointer_cast<SocketListener>(shared_from_this()));
+
+    return sock;
 }
 
 void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type)
@@ -42,7 +42,6 @@ void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket
 
     m_socket = std::move(socket);
     m_socket_type = type;
-    m_socket->set_close_hook(std::bind(&NetworkSocketListener::close_hook, this));
     m_fileno = m_socket->get_fileno();
 }
 
@@ -92,9 +91,12 @@ void NetworkSocketListener::update()
             m_socket->close();
         }
 
-        if(!m_socket->is_connected())
+        if(m_socket && !m_socket->is_connected())
         {
             this->on_disconnect();
+
+            auto &el = EventLoop::get_instance();
+            el.unregister_socket_listener(std::dynamic_pointer_cast<SocketListener>(shared_from_this()));
         }
  
        break;

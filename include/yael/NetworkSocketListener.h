@@ -54,6 +54,11 @@ public:
         return m_socket->send(data, length);
     }
 
+    void close_socket()
+    {
+        m_socket->close();
+    }
+
 protected:
     /**
      * @brief Hand a valid socket to the listener
@@ -64,9 +69,11 @@ protected:
 
     void update() override;
 
-private:
-    void close_hook();
+    /// Hand over socket to another object
+    /// Note: this will unregister the socket listener but *not* close the socket
+    std::unique_ptr<network::Socket> release_socket();
 
+private:
     std::unique_ptr<network::Socket> m_socket;
     SocketType m_socket_type;
     int32_t m_fileno;

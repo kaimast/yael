@@ -17,6 +17,8 @@
 #include <cassert>
 #include <glog/logging.h>
 
+#include "MessageSlicer.h"
+
 using namespace std;
 
 namespace yael
@@ -26,20 +28,18 @@ namespace network
 {
 
 constexpr int TRUE_FLAG = 1;
-constexpr msg_len_t HEADER_SIZE = sizeof(msg_len_t);
 
 TcpSocket::TcpSocket()
-    : m_port(0), m_is_ipv6(false), m_fd(-1),
-      m_buffer_pos(-1), m_buffer_size(0), m_listening(false),
-      m_has_current_message(false)
+    : m_port(0), m_is_ipv6(false), m_fd(-1), m_listening(false)
 {
+    m_slicer = std::make_unique<MessageSlicer>();
 }
 
 TcpSocket::TcpSocket(int fd)
-    : m_port(0), m_is_ipv6(false), m_fd(fd),
-      m_buffer_pos(-1), m_buffer_size(0), m_listening(false),
-      m_has_current_message(false)
+    : m_port(0), m_is_ipv6(false), m_fd(fd), m_listening(false)
 {
+    m_slicer = std::make_unique<MessageSlicer>();
+
     int flags = fcntl(m_fd, F_GETFL, 0);
     flags = flags | O_NONBLOCK;
     fcntl(m_fd, F_SETFL, flags);
@@ -51,6 +51,11 @@ TcpSocket::TcpSocket(int fd)
 TcpSocket::~TcpSocket()
 {
     close();
+}
+
+bool TcpSocket::has_messages() const
+{
+    return m_slicer->has_messages();
 }
 
 void TcpSocket::set_close_hook(std::function<void()> func)
@@ -227,6 +232,34 @@ bool TcpSocket::connect(const Address& address, const std::string& name)
     return true;
 }
 
+int32_t TcpSocket::internal_accept()
+{
+    int32_t s = 0;
+
+    if(m_is_ipv6)
+    {
+        sockaddr_in6 sock_addr;
+        socklen_t len = sizeof(sock_addr);
+        s = ::accept(m_fd, reinterpret_cast<sockaddr*>(&sock_addr), &len);
+    }
+    else
+    {
+        sockaddr_in sock_addr;
+        socklen_t len = sizeof(sock_addr);
+        s = ::accept(m_fd, reinterpret_cast<sockaddr*>(&sock_addr), &len);
+    }
+
+    if(s < 0 && errno != EWOULDBLOCK)
+    {
+        close();
+        std::string str = "Failed to accept new connection; ";
+        str += strerror(errno);
+        throw socket_error(str);
+    }
+
+    return s;
+}
+
 std::vector<Socket*> TcpSocket::accept()
 {
     if(!is_listening())
@@ -238,41 +271,15 @@ std::vector<Socket*> TcpSocket::accept()
 
     while(true)
     {
-        Address address;
-        int32_t s = 0;
-
-        if(m_is_ipv6)
+        auto fd = internal_accept();
+        
+        if(fd >= 0)
         {
-            sockaddr_in6 sock_addr;
-            socklen_t len = sizeof(sock_addr);
-            s = ::accept(m_fd, reinterpret_cast<sockaddr*>(&sock_addr), &len);
-            address = Address(sock_addr);
+            res.push_back(new TcpSocket(fd));
         }
         else
         {
-            sockaddr_in sock_addr;
-            socklen_t len = sizeof(sock_addr);
-            s = ::accept(m_fd, reinterpret_cast<sockaddr*>(&sock_addr), &len);
-            address = Address(sock_addr);
-        }
-
-        if(s < 0)
-        {
-            if(errno != EWOULDBLOCK)
-            {
-                close();
-                std::string str = "Failed to accept new connection; ";
-                str += strerror(errno);
-                throw socket_error(str);
-            }
-            else
-            {
-                return res;
-            }
-        }
-        else
-        {
-            res.push_back(new TcpSocket(s));
+            return res;
         }
     }
 }
@@ -311,8 +318,8 @@ void TcpSocket::close()
     int i = ::close(m_fd);
     (void)i; //unused
     m_fd = -1;
-    m_buffer_size = 0;
-    m_buffer_pos = -1;
+
+    m_slicer->buffer().reset();
 
     // Invoke close hook after destroying the filedescriptor
     // so that we don't call close a second time
@@ -322,125 +329,44 @@ void TcpSocket::close()
     }
 }
 
-bool TcpSocket::get_message(message_in_t& message)
-{
-    if(!has_messages())
-    {
-        return false;
-    }
-
-    auto& it = m_messages.front();
-    message.data = it.data;
-    message.length = it.length - HEADER_SIZE;
-
-    m_messages.pop_front();
-    return true;
-}
-
 void TcpSocket::pull_messages() 
 {
-    bool received_full_msg = false;
+    auto &buffer = m_slicer->buffer();
 
-    if(m_buffer_pos < 0)
+    if(!buffer.is_valid())
     {
-        bool res = receive_data();
+        bool res = receive_data(buffer);
         if(!res)
         {
             return;
         }
     }
 
-    internal_message_in_t msg;
+    try {
+        m_slicer->process_buffer();
+    } catch(std::exception &e) {
 
-    if(m_has_current_message)
-    {
-        msg = std::move(m_current_message);
-        m_has_current_message = false;
-    }
-    
-    // We need to read the header of the next datagram
-    if(msg.read_pos < HEADER_SIZE)
-    {
-        int32_t readlength = std::min<int32_t>(HEADER_SIZE - msg.read_pos, m_buffer_size - m_buffer_pos);
-
-        assert(readlength > 0);
-        mempcpy(reinterpret_cast<char*>(&msg.length)+msg.read_pos, &m_buffer[m_buffer_pos], readlength);
-
-        msg.read_pos += readlength;
-        m_buffer_pos += readlength;
-
-        if(msg.read_pos == HEADER_SIZE)
-        {
-            if(msg.length <= HEADER_SIZE)
-            {
-                LOG(ERROR) << "Not a valid message";
-                close();
-                return;
-            }
-
-            msg.data = new uint8_t[msg.length - HEADER_SIZE];
-        }
     }
 
-    // Has header?
-    if(msg.read_pos >= HEADER_SIZE)
-    {
-        const int32_t readlength = min(msg.length - msg.read_pos, m_buffer_size - m_buffer_pos);
-
-        if(readlength > 0)
-        {
-            if(msg.data == nullptr)
-            {
-                throw socket_error("Invalid state: message buffer not allocated");
-            }
-
-            mempcpy(&msg.data[msg.read_pos - HEADER_SIZE], &m_buffer[m_buffer_pos], readlength);
-
-            msg.read_pos += readlength;
-            m_buffer_pos += readlength;
-        }
-
-        if(msg.read_pos > msg.length)
-        {
-            throw socket_error("Invalid message length");
-        }
-
-        if(msg.read_pos == msg.length)
-        {
-            m_messages.emplace_back(std::move(msg));
-            received_full_msg = true;
-        }
-    }
-
-    if(!received_full_msg)
-    {
-        m_current_message = std::move(msg);
-        m_has_current_message = true;
-    }
-
-    // End of buffer.
-    if(m_buffer_pos == static_cast<int32_t>(m_buffer_size))
-    {
-        m_buffer_size = 0;
-        m_buffer_pos = -1;
-    }
-    
     // read rest of buffer
     // always pull more until we get EAGAIN
     pull_messages();
 }
 
-bool TcpSocket::receive_data() 
+bool TcpSocket::receive_data(buffer_t &buffer)
 {
     if(!is_valid())
     {
         return false;
     }
 
-    assert(m_buffer_pos < 0 && m_buffer_size == 0);
+    if(buffer.is_valid())
+    {
+        throw std::runtime_error("TcpSocket::receive_data failed: Invalid state");
+    }
 
-    memset(&m_buffer[0], 0, BUFFER_SIZE);
-    int32_t x = ::recv(m_fd, m_buffer, BUFFER_SIZE, 0);
+    memset(&buffer.data[0], 0, buffer.MAX_SIZE);
+    auto x = ::recv(m_fd, buffer.data, buffer.MAX_SIZE, 0);
 
     // Now act accordingly
     // > 0 -> data
@@ -448,8 +374,8 @@ bool TcpSocket::receive_data()
     // < 0 -> error/block
     if(x > 0)
     {
-        m_buffer_size = x;
-        m_buffer_pos = 0;
+        buffer.size = x;
+        buffer.position = 0;
 
         return true;
     }
@@ -490,10 +416,10 @@ std::optional<TcpSocket::message_in_t> TcpSocket::receive()
 {
     pull_messages();
 
-    if(has_messages())
+    if(m_slicer->has_messages())
     {
         message_in_t msg;
-        auto res = get_message(msg);
+        auto res = m_slicer->get_message(msg);
         if(!res)
         {
             throw socket_error("failed to get message");
@@ -520,20 +446,19 @@ bool TcpSocket::send(const message_out_t& message)
     }
 
     uint32_t sent = 0;
-    const uint32_t length = message.length + HEADER_SIZE;
+    const uint32_t length = message.length + MessageSlicer::HEADER_SIZE;
 
     while(sent < length)
     {
         int32_t s = 0;
 
-        if(sent < HEADER_SIZE)
+        if(sent < MessageSlicer::HEADER_SIZE)
         {
-            s = ::write(m_fd, reinterpret_cast<const char*>(&length)+sent, HEADER_SIZE-sent);
+            s = ::write(m_fd, reinterpret_cast<const char*>(&length)+sent, MessageSlicer::HEADER_SIZE-sent);
         }
         else
         {
-            assert(sent >= HEADER_SIZE);
-            s = ::write(m_fd, message.data+(sent-HEADER_SIZE), length-sent);
+            s = ::write(m_fd, message.data+(sent - MessageSlicer::HEADER_SIZE), length-sent);
         }
 
         if(s > 0)
