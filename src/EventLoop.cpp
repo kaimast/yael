@@ -7,13 +7,26 @@
 #include <sys/eventfd.h>
 #include <sys/epoll.h>
 
+namespace yael
+{
+
 // How many events can one thread see at most
 // Increasing this value might make the scheduler fairer but also slower
 constexpr int32_t MAX_EVENTS = 1;
 constexpr int32_t TIMEOUT_MAX = 100;
 constexpr int32_t EPOLL_FLAGS = EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLET;
 
-using namespace yael;
+/// Lockless queue doesn't like shared pointers so this extra wrapper is needea
+
+struct EventListenerHandle
+{
+    uintptr_t index;
+
+    std::atomic<bool> active;
+    std::atomic<uint16_t> num_events;
+
+    std::shared_ptr<EventListener> pointer;
+};
 
 EventLoop::EventLoop(int32_t num_threads)
     : m_okay(true), m_queued_events(0), m_has_time_events(false), m_epoll_fd(epoll_create1(0)),
@@ -81,7 +94,18 @@ void EventLoop::stop()
 
 void EventLoop::register_time_event(uint64_t timeout, EventListenerPtr listener)
 {
-    std::lock_guard<std::mutex> lock_guard(m_event_listeners_mutex);
+    std::shared_lock lock_guard(m_event_listeners_mutex);
+
+    auto idx = reinterpret_cast<uintptr_t>(listener.get());
+    auto it = m_event_listeners.find(idx);
+
+    if(it == m_event_listeners.end())
+    {
+        LOG(FATAL) << "No such time event";
+    }
+
+    auto hdl = it->second;
+    hdl->num_events++;
 
     m_has_time_events = true;
     auto start = get_time() + timeout;
@@ -90,15 +114,15 @@ void EventLoop::register_time_event(uint64_t timeout, EventListenerPtr listener)
     {
         if(it->first >= start)
         {
-            m_time_events.emplace(it, std::pair<uint64_t, EventListenerPtr>{start, listener});
+            m_time_events.emplace(it, std::pair<uint64_t, EventListenerHandle*>{start, hdl});
             return;
         }
     }
 
-    m_time_events.emplace_back(std::pair<uint64_t, EventListenerPtr>{start, listener});
+    m_time_events.emplace_back(std::pair<uint64_t, EventListenerHandle*>{start, hdl});
 }
 
-EventListener* EventLoop::get_next_event()
+EventListenerHandle* EventLoop::get_next_event()
 {
     uint64_t buffer = 0;
     auto i = read(m_event_semaphore, reinterpret_cast<uint8_t*>(&buffer), sizeof(buffer));
@@ -108,17 +132,17 @@ EventListener* EventLoop::get_next_event()
         return nullptr;
     }
 
-    EventListener *ptr = nullptr;
+    EventListenerHandle *hdl = nullptr;
 
-    bool res = m_queued_events.pop(ptr);
+    bool res = m_queued_events.pop(hdl);
 
-    if(!res)
+    if(!res || hdl->num_events < 1)
     {
         throw std::runtime_error("invalid state!");
     }
     
     m_num_queued_events--;
-    return ptr;
+    return hdl;
 }
 
 uint64_t EventLoop::get_time() const
@@ -129,7 +153,7 @@ uint64_t EventLoop::get_time() const
     return std::chrono::duration_cast<std::chrono::milliseconds>(res.time_since_epoch()).count();
 }
 
-EventListener* EventLoop::update()
+EventListenerHandle* EventLoop::update()
 {
     auto l = get_next_event();
 
@@ -207,7 +231,9 @@ EventListener* EventLoop::update()
 
     if(m_has_time_events)
     {
-        std::unique_lock<std::mutex> event_listeners_lock(m_event_listeners_mutex);
+        //FIXME use a separate mutex for time events
+        std::unique_lock event_listeners_lock(m_event_listeners_mutex);
+
         auto current_time = get_time();
         auto it = m_time_events.begin();
         
@@ -217,8 +243,17 @@ EventListener* EventLoop::update()
 
             if(start <= current_time)
             {
-                auto e = it->second;
-                queue_event(*e);
+                auto hdl = it->second;
+                m_queued_events.push(hdl);
+                m_num_queued_events++;
+
+                auto res = eventfd_write(m_event_semaphore, 1);
+
+                if(res < 0)
+                {
+                    throw std::runtime_error("Eventfd error");
+                }
+
                 it = m_time_events.erase(it);
 
                 if(m_time_events.empty())
@@ -238,7 +273,26 @@ EventListener* EventLoop::update()
 
 void EventLoop::queue_event(EventListener &l)
 {
-    m_queued_events.push(&l);
+    std::shared_lock lock(m_event_listeners_mutex);
+
+    auto idx = reinterpret_cast<uintptr_t>(&l);
+    auto it = m_event_listeners.find(idx);
+
+    if(it == m_event_listeners.end())
+    {
+        LOG(FATAL) << "Invalid event listener";
+    }
+
+    auto hdl = it->second;
+
+    if(!hdl->active)
+    {
+        LOG(FATAL) << "Invalid state!";
+    }
+
+    hdl->num_events++;
+
+    m_queued_events.push(hdl);
     m_num_queued_events++;
     
     auto res = eventfd_write(m_event_semaphore, 1);
@@ -280,9 +334,12 @@ void EventLoop::unregister_socket(int32_t fileno)
 
 void EventLoop::register_event_listener(EventListenerPtr listener)
 {
-    std::lock_guard<std::mutex> lock_guard(m_event_listeners_mutex);
-    auto res = m_event_listeners.emplace(listener);
+    std::unique_lock lock(m_event_listeners_mutex);
 
+    auto idx = reinterpret_cast<uintptr_t>(listener.get());
+    auto hdl = new EventListenerHandle{.index = idx, .active = true, .num_events = 0, .pointer = listener};
+
+    auto res = m_event_listeners.emplace(idx, hdl);
     if(!res.second)
     {
         LOG(FATAL) << "Listener already registered";
@@ -291,9 +348,10 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
 
 void EventLoop::unregister_event_listener(EventListenerPtr listener)
 {
-    std::lock_guard<std::mutex> lock_guard(m_event_listeners_mutex);
+    std::unique_lock lock(m_event_listeners_mutex);
 
-    auto it = m_event_listeners.find(listener);
+    auto idx = reinterpret_cast<uintptr_t>(listener.get());
+    auto it = m_event_listeners.find(idx);
 
     if(it == m_event_listeners.end())
     {
@@ -301,7 +359,20 @@ void EventLoop::unregister_event_listener(EventListenerPtr listener)
     }
     else
     {
-        m_event_listeners.erase(it);
+        auto hdl = it->second;
+
+        if(!hdl->active)
+        {
+            LOG(FATAL) << "Event listener already unregistered";
+        }
+
+        hdl->active = false;
+
+        if(hdl->num_events == 0)
+        {
+            delete hdl;
+            m_event_listeners.erase(it);
+        }
     }
 }
 
@@ -310,17 +381,39 @@ void EventLoop::thread_loop()
 {
     while(this->is_okay())
     {
-        auto listener = update();
+        EventListenerHandle *hdl = update();
 
-        if(listener == nullptr)
+        if(hdl == nullptr)
         {
             // terminate
             return;
         }
 
+        auto listener = hdl->pointer;
         listener->lock();
         listener->update();
         listener->unlock();
+
+        auto last_val = hdl->num_events.fetch_sub(1);
+
+        if(last_val < 1)
+        {
+            LOG(FATAL) << "Invalid state";
+        }
+
+        if(!hdl->active && last_val == 1)
+        {
+            std::unique_lock lock_guard(m_event_listeners_mutex);
+            listener->unlock();
+
+            auto it = m_event_listeners.find(hdl->index);
+
+            if(it != m_event_listeners.end())
+            {
+                m_event_listeners.erase(it);
+                delete hdl;
+            }
+        }
     }
 }
 
@@ -350,4 +443,6 @@ void EventLoop::wait()
     {
         t.join();
     }
+}
+
 }

@@ -2,8 +2,8 @@
 
 #include <thread>
 #include <stack>
-#include <unordered_set>
-#include <mutex>
+#include <unordered_map>
+#include <shared_mutex>
 #include <vector>
 #include <list>
 #include <stdint.h>
@@ -13,6 +13,8 @@
 
 namespace yael
 {
+
+class EventListenerHandle;
 
 /**
  * @brief The main EventLoop class
@@ -101,6 +103,13 @@ public:
     uint64_t get_time() const;
 
     void register_event_listener(EventListenerPtr listener);
+
+    /**
+     * Unregister an event listener
+     * This will mark the reference to the listener to be removed once all events have been processed
+     * 
+     * Note: you must hold the lock to listener before calling this function
+     */
     void unregister_event_listener(EventListenerPtr listener);
 
     void unregister_socket_listener(SocketListenerPtr listener)
@@ -119,14 +128,14 @@ public:
 private:
     void run();
     
-    EventListener* update();
+    EventListenerHandle* update();
     
     void thread_loop();
 
     void register_socket(int32_t fileno, void *ptr, int32_t flags = -1);
     void unregister_socket(int32_t fileno);
 
-    EventListener* get_next_event();
+    EventListenerHandle* get_next_event();
 
     /**
      * Constructor only called by initialize()
@@ -142,16 +151,16 @@ private:
 
     std::list<std::thread> m_threads;
 
-    boost::lockfree::queue<EventListener*> m_queued_events;
+    boost::lockfree::queue<EventListenerHandle*> m_queued_events;
     std::atomic<size_t> m_num_queued_events;
 
     std::atomic<bool> m_has_time_events;
 
     std::mutex m_time_events_mutex;
-    std::list<std::pair<uint64_t, EventListenerPtr>> m_time_events;
+    std::list<std::pair<uint64_t, EventListenerHandle*>> m_time_events;
 
-    std::mutex m_event_listeners_mutex;
-    std::unordered_set<EventListenerPtr> m_event_listeners;
+    std::shared_mutex m_event_listeners_mutex;
+    std::unordered_map<uintptr_t, EventListenerHandle*> m_event_listeners;
 
     const int32_t m_epoll_fd;
     const int32_t m_event_semaphore;

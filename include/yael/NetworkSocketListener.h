@@ -54,11 +54,7 @@ public:
         return m_socket->send(data, length);
     }
 
-    void close_socket()
-    {
-        m_socket->close();
-        on_disconnect();
-    }
+    void close_socket();
 
 protected:
     /**
@@ -78,6 +74,8 @@ private:
     std::unique_ptr<network::Socket> m_socket;
     SocketType m_socket_type;
     int32_t m_fileno;
+    
+    bool m_has_disconnected = false;
 };
 
 }
