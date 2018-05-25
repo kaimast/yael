@@ -10,7 +10,7 @@ namespace yael
 class EventListener : public std::enable_shared_from_this<EventListener>
 {
 public:
-    virtual ~EventListener() {}
+    virtual ~EventListener() = default;
 
     /**
      * Handle events
@@ -32,6 +32,17 @@ public:
      * Get the mutex associated with this object
      */
     std::mutex& mutex();
+
+    /**
+     * Does the underlying socket have messages
+     */
+    virtual bool is_valid() const = 0;
+
+    /** 
+     * What is the socket's filedescriptor?
+     * (used to identify this listener
+     */
+    virtual int32_t get_fileno() const = 0;
 
 private:
     std::mutex m_mutex;

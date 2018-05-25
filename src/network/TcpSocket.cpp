@@ -353,8 +353,8 @@ bool TcpSocket::receive_data(buffer_t &buffer)
         throw std::runtime_error("TcpSocket::receive_data failed: Invalid state");
     }
 
-    memset(&buffer.data[0], 0, buffer.MAX_SIZE);
-    auto x = ::recv(m_fd, buffer.data, buffer.MAX_SIZE, 0);
+    memset(&buffer.data[0], 0, yael::network::buffer_t::MAX_SIZE);
+    auto x = ::recv(m_fd, buffer.data, yael::network::buffer_t::MAX_SIZE, 0);
 
     // Now act accordingly
     // > 0 -> data

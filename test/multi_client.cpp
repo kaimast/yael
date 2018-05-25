@@ -6,7 +6,7 @@
 // This is because the event loop first accept the connection,
 // then calls on_new_connection to setup a socket listener.
 // When messages come in before the socket listener is set up
-// (calls to make_socket_listener or register_socket_listener),
+// (calls to make_event_listener or register_socket_listener),
 // they will be discarded.
 
 #include <cstdio>
@@ -62,7 +62,7 @@ std::string to_string(yael::network::Socket::message_in_t &msg)
 void Acceptor::on_new_connection(std::unique_ptr<yael::network::Socket> &&socket)
 {
     auto &el = EventLoop::get_instance();
-    el.make_socket_listener<Peer>(std::move(socket));
+    el.make_event_listener<Peer>(std::move(socket));
 }
 
 Acceptor::Acceptor(uint16_t port)
@@ -147,7 +147,7 @@ void do_child(const std::string &host, uint16_t port, uint32_t delay)
     signal(SIGTERM, stop_handler);
 
     auto &el = EventLoop::get_instance();
-    auto c = event_loop.make_socket_listener<Peer>(host, port, delay);
+    auto c = event_loop.make_event_listener<Peer>(host, port, delay);
 
     c->send("ping");
     while (!c->done)
@@ -236,7 +236,7 @@ void do_listen(int argc, char** argv)
     signal(SIGTERM, stop_handler);
 
     const uint16_t port = std::atoi(argv[2]);
-    event_loop.make_socket_listener<Acceptor>(port);
+    event_loop.make_event_listener<Acceptor>(port);
     event_loop.wait();
     event_loop.destroy();
 }

@@ -23,7 +23,7 @@ std::unique_ptr<network::Socket> NetworkSocketListener::release_socket()
     auto sock = std::move(m_socket);
 
     auto &el = EventLoop::get_instance();
-    el.unregister_socket_listener(std::dynamic_pointer_cast<SocketListener>(shared_from_this()));
+    el.unregister_event_listener(std::dynamic_pointer_cast<EventListener>(shared_from_this()));
 
     return sock;
 }
@@ -74,17 +74,18 @@ void NetworkSocketListener::update()
         {
             if(m_socket)
             {
-                auto message = m_socket->receive();
-                bool more_messages = m_socket->has_messages();
-
-                if(more_messages)
+                while(true)
                 {
-                    EventLoop::get_instance().queue_event(*this);
-                }
+                    auto message = m_socket->receive();
 
-                if(message)
-                {
-                    this->on_network_message(*message);
+                    if(message)
+                    {
+                        this->on_network_message(*message);
+                    }
+                    else
+                    {
+                        break;
+                    }
                 }
             }
         }
@@ -94,7 +95,8 @@ void NetworkSocketListener::update()
             m_socket->close();
         }
 
-        if(m_socket && !m_socket->is_connected())
+        // After processing the last message we will notify the user that the socket is closed
+        if(m_socket && !m_socket->is_connected() && !m_socket->has_messages())
         {
             close_socket();
         }
@@ -116,12 +118,14 @@ void NetworkSocketListener::close_socket()
         
         this->on_disconnect();
 
-        auto &el = EventLoop::get_instance();
-        el.unregister_socket_listener(std::dynamic_pointer_cast<SocketListener>(shared_from_this()));
-
+        // Don't unregister during event loop shutdown
+        if(EventLoop::is_initialized())
+        {
+            auto &el = EventLoop::get_instance();
+            el.unregister_event_listener(std::dynamic_pointer_cast<EventListener>(shared_from_this()));
+        }
     }
 }
-
 
 int32_t NetworkSocketListener::get_fileno() const
 {

@@ -5,16 +5,14 @@
 #include <unordered_map>
 #include <shared_mutex>
 #include <vector>
+#include <atomic>
 #include <list>
 #include <stdint.h>
-#include <boost/lockfree/queue.hpp>
 
-#include "SocketListener.h"
+#include "EventListener.h"
 
 namespace yael
 {
-
-struct EventListenerHandle;
 
 /**
  * @brief The main EventLoop class
@@ -40,25 +38,13 @@ public:
     std::shared_ptr<T> make_event_listener(Args&&... args)
     {
         auto l = std::make_shared<T>(std::forward<Args>(args)...);
-        this->register_event_listener(std::dynamic_pointer_cast<EventListener>(l));
-        return l;
-    }
+        auto sl = std::dynamic_pointer_cast<EventListener>(l);
 
-    template<typename T, typename... Args>
-    std::shared_ptr<T> make_socket_listener(Args&&... args)
-    {
-        auto l = std::make_shared<T>(std::forward<Args>(args)...);
-        auto sl = std::dynamic_pointer_cast<SocketListener>(l);
-
-        this->register_socket_listener(sl);
-        return l;
-    }
-
-    void register_socket_listener(SocketListenerPtr sl)
-    {
         this->register_event_listener(sl);
-        this->register_socket(sl->get_fileno(), sl.get());
+        return l;
     }
+
+    void register_event_listener(EventListenerPtr sl);
 
     /**
      * Shut the event loop down
@@ -72,11 +58,6 @@ public:
      */
     bool is_okay() const;
 
-    /**
-     * Scheduled event listener to be called in <timeout> ms
-     */
-    void register_time_event(uint64_t timeout, EventListenerPtr listener);
-    
     /**
      * @brief get the instance of the singleton
      * @throws a runtime_error if it hasn't been intialized yet
@@ -102,23 +83,16 @@ public:
      */
     uint64_t get_time() const;
 
-    void register_event_listener(EventListenerPtr listener);
-
     /**
      * Unregister an event listener
      * This will mark the reference to the listener to be removed once all events have been processed
      * 
      * Note: you must hold the lock to listener before calling this function
+     *
+     * @param purge [optional]
+     *      if set to true it will discard all pending events
      */
-    void unregister_event_listener(EventListenerPtr listener);
-
-    void unregister_socket_listener(SocketListenerPtr listener)
-    {
-        this->unregister_socket(listener->get_fileno());
-        this->unregister_event_listener(listener);
-    }
-
-    void queue_event(EventListener &l);
+    void unregister_event_listener(EventListenerPtr listener, bool purge = false);
 
     static bool is_initialized() 
     {
@@ -128,14 +102,12 @@ public:
 private:
     void run();
     
-    EventListenerHandle* update();
+    EventListener* update();
     
     void thread_loop();
 
     void register_socket(int32_t fileno, void *ptr, int32_t flags = -1);
     void unregister_socket(int32_t fileno);
-
-    EventListenerHandle* get_next_event();
 
     /**
      * Constructor only called by initialize()
@@ -151,16 +123,8 @@ private:
 
     std::list<std::thread> m_threads;
 
-    boost::lockfree::queue<EventListenerHandle*> m_queued_events;
-    std::atomic<size_t> m_num_queued_events;
-
-    std::atomic<bool> m_has_time_events;
-
-    std::mutex m_time_events_mutex;
-    std::list<std::pair<uint64_t, EventListenerHandle*>> m_time_events;
-
     std::shared_mutex m_event_listeners_mutex;
-    std::unordered_map<uintptr_t, EventListenerHandle*> m_event_listeners;
+    std::unordered_map<uintptr_t, EventListenerPtr> m_event_listeners;
 
     const int32_t m_epoll_fd;
     const int32_t m_event_semaphore;

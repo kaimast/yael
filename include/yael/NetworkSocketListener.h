@@ -5,14 +5,14 @@
 #include <glog/logging.h>
 
 #include "network/Socket.h"
-#include "SocketListener.h"
+#include "EventListener.h"
 
 namespace yael
 {
 
 enum class SocketType { None, Acceptor, Connection };
 
-class NetworkSocketListener: public SocketListener
+class NetworkSocketListener: public EventListener
 {
 public:
     /**
@@ -25,7 +25,7 @@ public:
      */
     NetworkSocketListener();
 
-    NetworkSocketListener(const SocketListener& other) = delete;
+    NetworkSocketListener(const EventListener& other) = delete;
     virtual ~NetworkSocketListener() = default;
 
     /**
@@ -44,7 +44,7 @@ public:
     virtual void on_new_connection(std::unique_ptr<network::Socket> &&socket) { (void)socket; }
     virtual void on_disconnect() {}
 
-    bool has_messages() const override
+    bool has_messages() const
     {
         return is_valid() && m_socket->has_messages();
     }
