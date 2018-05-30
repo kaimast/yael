@@ -1,7 +1,8 @@
 #pragma once
 
 #include "yael/network/Socket.h"
-#include <math.h>
+#include <cmath>
+#include <cstring>
 
 namespace yael
 {
@@ -117,7 +118,7 @@ inline void MessageSlicer::process_buffer()
     {
         int32_t readlength = std::min<int32_t>(HEADER_SIZE - msg.read_pos, m_buffer.size - m_buffer.position);
 
-        mempcpy(reinterpret_cast<char*>(&msg.length)+msg.read_pos, &m_buffer.data[m_buffer.position], readlength);
+        memcpy(reinterpret_cast<char*>(&msg.length)+msg.read_pos, &m_buffer.data[m_buffer.position], readlength);
 
         msg.read_pos += readlength;
         m_buffer.position += readlength;

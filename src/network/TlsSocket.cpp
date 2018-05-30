@@ -1,5 +1,6 @@
 #include "yael/network/TlsSocket.h"
 
+#include "MessageSlicer.h"
 #include "TlsContext.h"
 
 namespace yael
@@ -42,8 +43,18 @@ std::vector<Socket*> TlsSocket::accept()
 
 bool TlsSocket::connect(const Address& address, const std::string& name)
 {
+    if(!TcpSocket::connect(address, name))
+    {
+        return false;
+    }
+
     m_tls_context = std::make_unique<TlsClient>(*this);
-    return false; //fixme
+    return true;
+}
+
+bool TlsSocket::wait_connection_established()
+{
+    return m_tls_context->wait_connected();
 }
 
 bool TlsSocket::listen(const Address& address, uint32_t backlog)
@@ -53,6 +64,7 @@ bool TlsSocket::listen(const Address& address, uint32_t backlog)
 
 void TlsSocket::close()
 {
+    m_tls_context = nullptr;
     TcpSocket::close();
 }
 
@@ -64,23 +76,23 @@ bool TlsSocket::send(const message_out_t& message)
 
 bool TlsSocket::is_connected() const
 {
-    return false; //fixme
+    return m_tls_context->is_connected();
 }
 
-void TlsSocket::queue_message(const uint8_t *data, size_t size)
+void TlsSocket::pull_messages() 
 {
-    Socket::message_in_t msg;
+    bool res = receive_data(m_buffer);
 
-    msg.data = new uint8_t[size];
-    msg.length = size;
-    memcpy(msg.data, data, size);
+    if(!res)
+    {
+        return;
+    }
 
-    m_messages.emplace_back(std::move(msg));
-}
+    m_tls_context->tls_process_data(m_buffer);
+    m_buffer.reset();
 
-void TlsSocket::pull_messages()
-{
-
+    // always pull more until we get EAGAIN
+    pull_messages();
 }
 
 }

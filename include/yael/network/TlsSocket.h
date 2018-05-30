@@ -24,6 +24,8 @@ public:
     using Socket::listen;
 
     void close() override;
+    
+    bool wait_connection_established() override;
 
     bool send(const message_out_t& message) override __attribute__((warn_unused_result));
     using Socket::send;
@@ -35,8 +37,6 @@ protected:
     //! Is only called by Socket::accept
     TlsSocket(int32_t fd);
 
-    void queue_message(const uint8_t *data, size_t size);
-
 private:
     void pull_messages() override;
 
@@ -45,6 +45,9 @@ private:
     std::list<Socket::message_in_t> m_messages;
 
     std::unique_ptr<TlsContext> m_tls_context;
+
+    // Buffer for raw data 
+    buffer_t m_buffer;
 };
 
 }

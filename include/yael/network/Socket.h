@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <functional>
 #include <optional>
+#include <iostream>
 
 #include "Address.h"
 
@@ -13,11 +14,29 @@ namespace yael
 namespace network
 {
 
-enum class SocketType
+enum class ProtocolType : uint8_t
 {
     TCP,
     TLS
 };
+
+inline std::ostream& operator<<(std::ostream &stream, const ProtocolType &type)
+{
+    if(type == ProtocolType::TCP)
+    {
+        stream << "TCP";
+    }
+    else if(type == ProtocolType::TLS)
+    {
+        stream << "TLS";
+    }
+    else
+    {
+        throw std::runtime_error("Invalid socket type");
+    }
+
+    return stream;
+}
 
 //! For internal use only
 struct buffer_t
@@ -96,6 +115,12 @@ public:
     //! Connect to an address
     virtual bool connect(const Address& address, const std::string& name = "") __attribute__((warn_unused_result)) = 0;
 
+    //! Wait for the connection to be established
+    //! This is a no-op for plain TCP/UDP but will block for encrypted channels
+    //! You need to call this after connect() and registering the socket with and event loop
+    //! receive() calls will handle establishing of a connnection
+    virtual bool wait_connection_established() = 0;
+
     //! Make the port listen for connections
     virtual bool listen(const Address& address, uint32_t backlog) __attribute__((warn_unused_result)) = 0;
 
@@ -109,11 +134,6 @@ public:
      */
     virtual void close() = 0;
 
-    /**
-     * @brief Is this a valid socket? (i.e. either listening or connected)
-     */
-    virtual bool is_valid() const = 0;
-
     //! Send a message consisting of a list of datagrams
     virtual bool send(const message_out_t& message) __attribute__((warn_unused_result)) = 0;
 
@@ -126,9 +146,19 @@ public:
      */
     virtual uint16_t port() const = 0;
 
+    /**
+     * Has a connection and session been established with the remote party
+     *
+     * Note: For TLS this means that the handshake is completed
+     */
     virtual bool is_connected() const = 0;
 
+    /// Is this socket listening for new connections?
     virtual bool is_listening() const = 0;
+
+    /// Is this a  valid socket
+    /// Note; this does not imply a connection is established yet
+    virtual bool is_valid() const = 0;
 
     virtual const Address& get_client_address() const = 0;
 

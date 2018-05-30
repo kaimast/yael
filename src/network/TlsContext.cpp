@@ -20,7 +20,36 @@ TlsContext::TlsContext(TlsSocket &socket)
 
 void TlsContext::send(const Socket::message_out_t &message)
 {
+    uint32_t header = message.length + sizeof(uint32_t);
+    m_channel->send(reinterpret_cast<const uint8_t*>(&header), sizeof(header));
     m_channel->send(message.data, message.length);
+}
+
+bool TlsContext::wait_connected()
+{
+    std::unique_lock lock(m_mutex);
+
+    while(!m_connected)
+    {
+        m_cond_var.wait(lock);
+    }
+
+    return m_connected;
+}
+
+void TlsContext::tls_process_data(buffer_t &buffer)
+{
+    m_channel->received_data(buffer.data, buffer.size);
+}
+
+void TlsContext::tls_verify_cert_chain(const std::vector<Botan::X509_Certificate>& cert_chain,
+         const std::vector<std::shared_ptr<const Botan::OCSP::Response>>& ocsp_responses,
+         const std::vector<Botan::Certificate_Store*>& trusted_roots,
+         Botan::Usage_Type usage,
+         const std::string& hostname,
+         const Botan::TLS::Policy& policy)
+{
+    //FIXME actually verify in release mode
 }
 
 void TlsContext::tls_emit_data(const uint8_t data[], size_t size)
@@ -29,7 +58,7 @@ void TlsContext::tls_emit_data(const uint8_t data[], size_t size)
 
     while(sent < size)
     {
-        auto s = ::write(m_socket.m_fd, data, size - sent);
+        auto s = ::write(m_socket.m_fd, reinterpret_cast<const char*>(data)+sent, size - sent);
 
         if(s > 0)
         {
@@ -67,31 +96,45 @@ void TlsContext::tls_record_received(uint64_t seq_no, const uint8_t data[], size
     auto &slicer = *m_socket.m_slicer;
     auto &buffer = slicer.buffer();
 
-    if(buffer.is_valid())
+    size_t pos = 0;
+
+    while(pos < size)
     {
-        throw std::runtime_error("Can't receive data right now");
+        if(buffer.is_valid())
+        {
+            throw std::runtime_error("Invalid state");
+        }
+
+        auto cpy_size = std::min<size_t>(yael::network::buffer_t::MAX_SIZE, size-pos);
+
+        memcpy(buffer.data, data+pos, cpy_size);
+        buffer.size = cpy_size;
+        buffer.position = 0;
+
+        slicer.process_buffer();
+
+        pos += cpy_size;
     }
-
-    if(buffer.MAX_SIZE < size)
-    {
-        throw std::runtime_error("Data too long");
-    }
-
-    memcpy(buffer.data, data, size);
-    buffer.size = size;
-    buffer.position = 0;
-
-    slicer.process_buffer();
 }
 
 void TlsContext::tls_alert(Botan::TLS::Alert alert)
 {
+    LOG(WARNING) << "Received TLS alert " << alert.type_string();
 
+    if(alert.is_fatal())
+    {
+        m_socket.close();
+    }
 }
 
 bool TlsContext::tls_session_established(const Botan::TLS::Session &session)
 {
-    return true;
+    std::unique_lock lock(m_mutex);
+
+    m_connected = true;
+    m_cond_var.notify_all();
+    
+    return false;
 }
 
 TlsServer::TlsServer(TlsSocket &socket)

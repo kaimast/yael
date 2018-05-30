@@ -3,7 +3,7 @@
 
 int main(int argc, char **argv)
 {
-    google::SetLogDestination(google::GLOG_INFO, "credb-test");
+    google::SetLogDestination(google::GLOG_INFO, "yael-test");
     google::InitGoogleLogging(argv[0]);
 
     FLAGS_logbufsecs = 0;

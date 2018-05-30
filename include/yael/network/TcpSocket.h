@@ -34,10 +34,15 @@ public:
     bool connect(const Address& address, const std::string& name = "") override __attribute__((warn_unused_result));
 
     bool listen(const Address& address, uint32_t backlog) override __attribute__((warn_unused_result));
+
     using Socket::listen;
 
     void close() override;
-    bool is_valid() const override;
+
+    inline bool wait_connection_established() override
+    {
+        return is_connected();
+    }
 
     bool send(const message_out_t& message) override __attribute__((warn_unused_result));
     using Socket::send;
@@ -54,7 +59,10 @@ public:
 
     std::optional<message_in_t> receive() override;
 
+    bool is_valid() const { return m_fd > 0; }
+
 protected:
+
     //! Construct as a child socket
     //! Is only called by Socket::accept
     TcpSocket(int fd);
@@ -116,9 +124,5 @@ inline bool TcpSocket::is_listening() const
     return is_valid() && m_listening;
 }
 
-inline bool TcpSocket::is_valid() const
-{
-    return m_fd >= 0;
-}
 }
 }

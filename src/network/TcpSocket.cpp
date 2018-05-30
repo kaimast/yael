@@ -330,10 +330,13 @@ void TcpSocket::pull_messages()
         }
     }
 
-    try {
+    try
+    {
         m_slicer->process_buffer();
-    } catch(std::exception &e) {
-
+    }
+    catch(std::exception &e)
+    {
+        // ignore
     }
 
     // read rest of buffer

@@ -45,8 +45,19 @@ void TimeEventListener::schedule(uint64_t delay)
     itimerspec new_value;
     new_value.it_interval.tv_sec = 0;
     new_value.it_interval.tv_nsec = 0;
-    new_value.it_value.tv_sec = delay / 1000;
-    new_value.it_value.tv_nsec = (delay % 1000) * (1000*1000);
+
+    if(delay == 0)
+    {
+        // Setting the delay to 0 disarms the timer
+        // Instead we set it to 1ns as a workaround
+        new_value.it_value.tv_sec = 0;
+        new_value.it_value.tv_nsec = 1;
+    }
+    else
+    {
+        new_value.it_value.tv_sec = delay / 1000;
+        new_value.it_value.tv_nsec = (delay % 1000) * (1000*1000);
+    }
 
     itimerspec old_value;
 

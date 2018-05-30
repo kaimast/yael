@@ -14,6 +14,8 @@ NetworkSocketListener::NetworkSocketListener(std::unique_ptr<network::Socket> &&
     if(socket)
     {
         NetworkSocketListener::set_socket(std::forward<std::unique_ptr<network::Socket>>(socket), type);
+
+        m_socket->wait_connection_established();
     }
 }
 
@@ -52,7 +54,7 @@ bool NetworkSocketListener::is_valid() const
         return false;
     }
 
-    return m_socket->is_valid();
+    return m_socket->is_connected();
 }
 
 void NetworkSocketListener::update()
@@ -84,6 +86,7 @@ void NetworkSocketListener::update()
                     }
                     else
                     {
+                        // no more data
                         break;
                     }
                 }
@@ -92,11 +95,10 @@ void NetworkSocketListener::update()
         catch (const network::socket_error &e)
         {
             LOG(WARNING) << e.what();
-            m_socket->close();
         }
 
         // After processing the last message we will notify the user that the socket is closed
-        if(m_socket && !m_socket->is_connected() && !m_socket->has_messages())
+        if(m_socket && !m_socket->is_valid())
         {
             close_socket();
         }

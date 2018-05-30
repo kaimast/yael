@@ -100,31 +100,26 @@ public:
     }
 
 private:
+    EventLoop(int32_t num_threads);
+    ~EventLoop();
+
     void run();
     
-    EventListener* update();
+    EventListenerPtr update();
     
     void thread_loop();
 
-    void register_socket(int32_t fileno, void *ptr, int32_t flags = -1);
+    void register_socket(int32_t fileno, EventListenerPtr *ptr, int32_t flags = -1);
     void unregister_socket(int32_t fileno);
-
-    /**
-     * Constructor only called by initialize()
-     */
-    EventLoop(int32_t num_threads);
-    ~EventLoop();
 
     static EventLoop* m_instance;
 
     std::atomic<bool> m_okay;
 
-    std::mutex m_queued_events_mutex;
-
     std::list<std::thread> m_threads;
 
     std::shared_mutex m_event_listeners_mutex;
-    std::unordered_map<uintptr_t, EventListenerPtr> m_event_listeners;
+    std::unordered_map<int32_t, EventListenerPtr*> m_event_listeners;
 
     const int32_t m_epoll_fd;
     const int32_t m_event_semaphore;

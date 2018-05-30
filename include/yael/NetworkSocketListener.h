@@ -64,13 +64,13 @@ protected:
      */
     virtual void set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type);
 
-    void update() override;
-
     /// Hand over socket to another object
     /// Note: this will unregister the socket listener but *not* close the socket
     std::unique_ptr<network::Socket> release_socket();
 
 private:
+    void update() override;
+
     std::unique_ptr<network::Socket> m_socket;
     SocketType m_socket_type;
     int32_t m_fileno;

@@ -3,11 +3,15 @@
 #include <botan/tls_callbacks.h>
 #include <botan/tls_channel.h>
 #include <botan/tls_session_manager.h>
-#include <botan/tls_policy.h>
 #include <botan/auto_rng.h>
 #include <botan/pk_keys.h>
 
+#include <condition_variable>
+#include <mutex>
+
 #include "yael/network/TlsSocket.h"
+#include "TlsPolicy.h"
+#include "ClientCredentials.h"
 #include "ServerCredentials.h"
 
 namespace yael
@@ -22,6 +26,13 @@ public:
 
     void send(const Socket::message_out_t &message);
 
+    bool wait_connected();
+
+    void tls_process_data(buffer_t &buffer);
+
+    bool is_connected() const { return m_connected; }
+
+protected:
     /// Incoming data
     void tls_emit_data(const uint8_t data[], size_t size) override;
 
@@ -31,12 +42,22 @@ public:
 
     bool tls_session_established(const Botan::TLS::Session &session) override;
 
-protected:
+    void tls_verify_cert_chain(const std::vector<Botan::X509_Certificate>& cert_chain,
+             const std::vector<std::shared_ptr<const Botan::OCSP::Response>>& ocsp_responses,
+             const std::vector<Botan::Certificate_Store*>& trusted_roots,
+             Botan::Usage_Type usage,
+             const std::string& hostname,
+             const Botan::TLS::Policy& policy) override;
+
     TlsSocket &m_socket;
+
+    bool m_connected;
+    std::mutex m_mutex;
+    std::condition_variable m_cond_var;
 
     Botan::AutoSeeded_RNG m_rng;
     Botan::TLS::Session_Manager_In_Memory m_session_mgr;
-    Botan::TLS::Strict_Policy m_policy;
+    TlsPolicy m_policy;
 
     /// This is either a server or client
     std::unique_ptr<Botan::TLS::Channel> m_channel;
@@ -57,7 +78,7 @@ public:
     TlsClient(TlsSocket &socket);
 
 private:
-    ServerCredentials m_credentials;
+    ClientCredentials m_credentials;
 };
 
 

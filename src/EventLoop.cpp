@@ -29,6 +29,11 @@ EventLoop::EventLoop(int32_t num_threads)
 
 EventLoop::~EventLoop()
 {
+    for(auto &[fileno, ptr] : m_event_listeners)
+    {
+        delete ptr;
+    }
+
     m_event_listeners.clear();
     ::close(m_epoll_fd);
 }
@@ -81,7 +86,7 @@ uint64_t EventLoop::get_time() const
     return std::chrono::duration_cast<std::chrono::milliseconds>(res.time_since_epoch()).count();
 }
 
-EventListener* EventLoop::update()
+EventListenerPtr EventLoop::update()
 {
     epoll_event events[MAX_EVENTS];
     int nfds = -1;
@@ -131,18 +136,18 @@ EventListener* EventLoop::update()
     }
     else
     {
-        auto listener = reinterpret_cast<EventListener*>(ptr);
-        return listener;
+        auto listener = reinterpret_cast<EventListenerPtr*>(ptr);
+        return *listener;
     }
 }
 
 void EventLoop::register_event_listener(EventListenerPtr listener)
 {
     std::unique_lock lock(m_event_listeners_mutex);
+    auto idx = listener->get_fileno();
+    auto ptr = new EventListenerPtr(listener);
+    auto res = m_event_listeners.emplace(idx, ptr);
 
-    auto idx = reinterpret_cast<uintptr_t>(listener.get());
-    auto res = m_event_listeners.emplace(idx, listener);
-    
     if(!res.second)
     {
         LOG(FATAL) << "Listener already registered";
@@ -155,10 +160,10 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
         throw std::runtime_error("Not a valid socket");
     }
 
-    register_socket(fileno, listener.get());
+    register_socket(fileno, ptr);
 }
 
-void EventLoop::register_socket(int32_t fileno, void *ptr, int32_t flags)
+void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, int32_t flags)
 {
     struct epoll_event ev;
     ev.events = flags < 0 ? EPOLL_FLAGS : flags;
@@ -175,8 +180,8 @@ void EventLoop::unregister_event_listener(EventListenerPtr listener, bool purge)
 {
     std::unique_lock lock(m_event_listeners_mutex);
 
-    auto idx = reinterpret_cast<uintptr_t>(listener.get());
-    auto it = m_event_listeners.find(idx);
+    auto fileno = listener->get_fileno();
+    auto it = m_event_listeners.find(fileno);
 
     if(it == m_event_listeners.end())
     {
@@ -186,16 +191,16 @@ void EventLoop::unregister_event_listener(EventListenerPtr listener, bool purge)
         }
         else
         {
-            LOG(FATAL) << "Event listener already unregistered";
+            LOG(WARNING) << "Event listener already unregistered";
         }
     }
     else
     {
-        m_event_listeners.erase(it);
-
-        auto fileno = listener->get_fileno();
         int res = epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fileno, nullptr);
-        (void)res; // ignore
+        (void)res;
+
+        delete it->second;
+        m_event_listeners.erase(it);
     }
 }
 
