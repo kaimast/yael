@@ -31,6 +31,7 @@ EventLoop::~EventLoop()
 {
     for(auto &[fileno, ptr] : m_event_listeners)
     {
+        (void)fileno;
         delete ptr;
     }
 

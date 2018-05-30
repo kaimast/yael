@@ -1,6 +1,6 @@
 project('yael', 'cpp')
 
-compile_args = ['-Wall', '-std=c++17', '-Werror']
+compile_args = ['-Wall', '-std=c++17', '-Wextra']
 
 if get_option('buildtype') == 'debug'
     compile_args = compile_args + ['-DDEBUG']

@@ -51,6 +51,12 @@ void TlsContext::tls_verify_cert_chain(const std::vector<Botan::X509_Certificate
          const std::string& hostname,
          const Botan::TLS::Policy& policy)
 {
+    (void)cert_chain;
+    (void)ocsp_responses;
+    (void)trusted_roots;
+    (void)usage;
+    (void)hostname;
+    (void)policy;
     //FIXME actually verify in release mode
 }
 
@@ -100,6 +106,8 @@ void TlsContext::close()
 
 void TlsContext::tls_record_received(uint64_t seq_no, const uint8_t data[], size_t size)
 {
+    (void)seq_no;
+
     std::unique_lock lock(m_mutex);
 
     auto &slicer = *m_socket.m_slicer;
@@ -138,6 +146,8 @@ void TlsContext::tls_alert(Botan::TLS::Alert alert)
 
 bool TlsContext::tls_session_established(const Botan::TLS::Session &session)
 {
+    (void)session;
+
     std::unique_lock lock(m_mutex);
 
     m_connected = true;

@@ -21,6 +21,9 @@ public:
             const std::string& type,
             const std::string& context) override
      {
+        (void)type;
+        (void)context;
+
          return std::vector<Botan::Certificate_Store*>();
      }
 
@@ -29,6 +32,10 @@ public:
      const std::string& type,
      const std::string& context) override
      {
+        (void)cert_key_types;
+        (void)type;
+        (void)context;
+
         return { m_certificate };
      }
 
@@ -36,6 +43,10 @@ public:
      const std::string& type,
      const std::string& context) override
      {
+        (void)cert;
+        (void)type;
+        (void)context;
+
          return m_key.get();
      }
   
