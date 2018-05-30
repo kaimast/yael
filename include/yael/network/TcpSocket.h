@@ -59,7 +59,7 @@ public:
 
     std::optional<message_in_t> receive() override;
 
-    bool is_valid() const { return m_fd > 0; }
+    bool is_valid() const override { return m_fd > 0; }
 
 protected:
 
