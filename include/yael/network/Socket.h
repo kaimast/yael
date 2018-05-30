@@ -47,6 +47,11 @@ struct buffer_t
     int32_t position;
     uint32_t size;
 
+    buffer_t()
+    {
+        reset();
+    }
+
     void reset()
     {
         size = 0;

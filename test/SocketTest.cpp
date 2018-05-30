@@ -78,7 +78,7 @@ public:
         }
         else
         {
-            socket = new TlsSocket();
+            socket = new TlsSocket("../test/test.key", "../test/test.cert");
         }
 
         if(!socket->listen(addr, 10))
@@ -159,6 +159,8 @@ TEST_P(SocketTest, send_one_way)
 
     ASSERT_EQ(len, msg->length);
     ASSERT_EQ(0, memcmp(data, msg->data, len));
+
+    delete[] msg->data;
 }
 
 TEST_P(SocketTest, send_large_chunk)
@@ -179,6 +181,7 @@ TEST_P(SocketTest, send_large_chunk)
     ASSERT_EQ(len, msg->length);
     ASSERT_EQ(0, memcmp(data, msg->data, len));
 
+    delete[] msg->data;
     delete[] data;
 }
 
@@ -199,6 +202,8 @@ TEST_P(SocketTest, send_other_way)
 
     ASSERT_EQ(len, msg->length);
     ASSERT_EQ(0, memcmp(data, msg->data, len));
+
+    delete[] msg->data;
 }
 
 TEST_P(SocketTest, first_in_first_out)
@@ -230,6 +235,9 @@ TEST_P(SocketTest, first_in_first_out)
     ASSERT_EQ(len, msg1->length);
     ASSERT_EQ(type2, *msg2->data);
     ASSERT_EQ(len, msg2->length);
+
+    delete[] msg1->data;
+    delete[] msg2->data;
 }
 
 INSTANTIATE_TEST_CASE_P(SocketTests, SocketTest,

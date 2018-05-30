@@ -14,12 +14,14 @@ namespace network
 {
 
 TlsContext::TlsContext(TlsSocket &socket)
-    : m_socket(socket), m_session_mgr(m_rng)
+    : m_connected(false), m_socket(socket), m_session_mgr(m_rng)
 {
 }
 
 void TlsContext::send(const Socket::message_out_t &message)
 {
+    std::unique_lock lock(m_mutex);
+
     uint32_t header = message.length + sizeof(uint32_t);
     m_channel->send(reinterpret_cast<const uint8_t*>(&header), sizeof(header));
     m_channel->send(message.data, message.length);
@@ -91,8 +93,15 @@ void TlsContext::tls_emit_data(const uint8_t data[], size_t size)
     }
 }
 
+void TlsContext::close()
+{
+    m_channel->close();
+}
+
 void TlsContext::tls_record_received(uint64_t seq_no, const uint8_t data[], size_t size)
 {
+    std::unique_lock lock(m_mutex);
+
     auto &slicer = *m_socket.m_slicer;
     auto &buffer = slicer.buffer();
 
@@ -137,8 +146,8 @@ bool TlsContext::tls_session_established(const Botan::TLS::Session &session)
     return false;
 }
 
-TlsServer::TlsServer(TlsSocket &socket)
-    : TlsContext(socket)
+TlsServer::TlsServer(TlsSocket &socket, const std::string &key_path, const std::string &cert_path)
+    : TlsContext(socket), m_credentials(key_path, cert_path)
 {
     m_channel = std::make_unique<Botan::TLS::Server>
         (*this, m_session_mgr, m_credentials, m_policy, m_rng);

@@ -20,10 +20,7 @@ class MessageSlicer
 public:
     static constexpr msg_len_t HEADER_SIZE = sizeof(msg_len_t);
 
-    MessageSlicer()
-    {
-        buffer().reset();
-    }
+    MessageSlicer() = default;
 
     buffer_t& buffer()
     {
@@ -98,7 +95,7 @@ private:
     //! Current positin in the message buffer
     //! This is used for multiple messages in one receive call
     //! Message in progress to be read
-    bool m_has_current_message;
+    bool m_has_current_message = false;
     message_in_t m_current_message;
 };
 

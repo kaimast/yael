@@ -353,7 +353,7 @@ bool TcpSocket::receive_data(buffer_t &buffer)
 
     if(buffer.is_valid())
     {
-        throw std::runtime_error("TcpSocket::receive_data failed: Invalid state");
+        throw std::runtime_error("TcpSocket::receive_data failed: Still have data queued up in buffer");
     }
 
     memset(&buffer.data[0], 0, yael::network::buffer_t::MAX_SIZE);

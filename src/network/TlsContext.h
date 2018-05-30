@@ -23,6 +23,7 @@ class TlsContext:  public Botan::TLS::Callbacks
 {
 public:
     TlsContext(TlsSocket &socket);
+    virtual ~TlsContext() = default;
 
     void send(const Socket::message_out_t &message);
 
@@ -31,6 +32,8 @@ public:
     void tls_process_data(buffer_t &buffer);
 
     bool is_connected() const { return m_connected; }
+
+    void close();
 
 protected:
     /// Incoming data
@@ -49,12 +52,13 @@ protected:
              const std::string& hostname,
              const Botan::TLS::Policy& policy) override;
 
-    TlsSocket &m_socket;
-
     bool m_connected;
+
     std::mutex m_mutex;
     std::condition_variable m_cond_var;
 
+    TlsSocket &m_socket;
+    
     Botan::AutoSeeded_RNG m_rng;
     Botan::TLS::Session_Manager_In_Memory m_session_mgr;
     TlsPolicy m_policy;
@@ -66,7 +70,7 @@ protected:
 class TlsServer : public TlsContext
 {
 public:
-    TlsServer(TlsSocket &socket);
+    TlsServer(TlsSocket &socket, const std::string &key_path, const std::string &cert_path);
 
 private:
     ServerCredentials m_credentials;

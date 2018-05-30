@@ -14,7 +14,14 @@ class TlsContext;
 class TlsSocket : public TcpSocket
 {
 public:
-    TlsSocket();
+    /**
+     * Constructor
+     *
+     * You only need to specify key and certificate for the server
+     */
+    TlsSocket(const std::string &key_path = "", const std::string &cert_path = "");
+
+    ~TlsSocket();
 
     std::vector<Socket*> accept() override;
 
@@ -35,14 +42,15 @@ public:
 protected:
     //! Construct as a child socket
     //! Is only called by Socket::accept
-    TlsSocket(int32_t fd);
+    TlsSocket(int32_t fd, const std::string &key_path, const std::string &cert_path);
 
 private:
     void pull_messages() override;
 
     friend class TlsContext;
 
-    std::list<Socket::message_in_t> m_messages;
+    const std::string m_key_path;
+    const std::string m_cert_path;
 
     std::unique_ptr<TlsContext> m_tls_context;
 

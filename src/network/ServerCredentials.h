@@ -13,8 +13,8 @@ namespace network
 class ServerCredentials : public Botan::Credentials_Manager
 {
 public:
-    ServerCredentials()
-        : m_key(Botan::PKCS8::load_key("test.key", m_rng))
+    ServerCredentials(const std::string &key_path, const std::string &cert_path)
+        : m_key(Botan::PKCS8::load_key(key_path, m_rng)), m_certificate(cert_path)
     {}
 
      std::vector<Botan::Certificate_Store*> trusted_certificate_authorities(
@@ -29,7 +29,7 @@ public:
      const std::string& type,
      const std::string& context) override
      {
-        return { Botan::X509_Certificate("test.cert") };
+        return { m_certificate };
      }
 
   Botan::Private_Key* private_key_for(const Botan::X509_Certificate& cert,
@@ -42,6 +42,7 @@ public:
 private:
      Botan::AutoSeeded_RNG m_rng;
      std::unique_ptr<Botan::Private_Key> m_key;
+     Botan::X509_Certificate m_certificate;
 };
 
 }

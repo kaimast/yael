@@ -26,7 +26,7 @@ public:
     TcpSocket(const Socket& other) = delete;
 
     TcpSocket();
-    ~TcpSocket();
+    virtual ~TcpSocket();
 
     std::vector<Socket*> accept() override;
 
@@ -37,7 +37,7 @@ public:
 
     using Socket::listen;
 
-    void close() override;
+    virtual void close() override;
 
     inline bool wait_connection_established() override
     {
