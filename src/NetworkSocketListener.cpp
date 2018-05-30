@@ -74,21 +74,18 @@ void NetworkSocketListener::update()
     {
         try
         {
-            if(m_socket)
+            while(m_socket)
             {
-                while(true)
-                {
-                    auto message = m_socket->receive();
+                auto message = m_socket->receive();
 
-                    if(message)
-                    {
-                        this->on_network_message(*message);
-                    }
-                    else
-                    {
-                        // no more data
-                        break;
-                    }
+                if(message)
+                {
+                    this->on_network_message(*message);
+                }
+                else
+                {
+                    // no more data
+                    break;
                 }
             }
         }
