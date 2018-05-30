@@ -68,7 +68,7 @@ DelayedNetworkSocketListener::DelayedNetworkSocketListener(uint32_t delay, std::
 
 DelayedNetworkSocketListener::~DelayedNetworkSocketListener()
 {
-    if(EventLoop::is_initialized())
+    if(EventLoop::is_initialized() && m_sender != nullptr)
     {
         auto &el = EventLoop::get_instance();
         el.unregister_event_listener(m_sender, true);

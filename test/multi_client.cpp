@@ -106,6 +106,7 @@ void Peer::send(const std::string &msg)
     const uint8_t *data = reinterpret_cast<const uint8_t*>(msg.c_str());
     const uint32_t length = msg.size();
     bool result = DelayedNetworkSocketListener::send(data, length);
+
     if (!result)
     {
         throw std::runtime_error("Failed to send message");
@@ -134,7 +135,7 @@ void stop_handler(int)
     yael::EventLoop::get_instance().stop();
 }
 
-void do_child(const std::string &host, uint16_t port, uint32_t delay)
+int do_child(const std::string &host, uint16_t port, uint32_t delay)
 {
     FLAGS_logbufsecs = 0; 
     FLAGS_logbuflevel = google::GLOG_INFO;
@@ -150,14 +151,25 @@ void do_child(const std::string &host, uint16_t port, uint32_t delay)
     auto c = event_loop.make_event_listener<Peer>(host, port, delay);
 
     c->send("ping");
-    while (!c->done)
+    while (!c->done && c->is_valid())
     {
         std::this_thread::sleep_for(10ms);
     }
+
+    int res = 0;
+
+    if(!c->done)
+    {
+        LOG(ERROR) << "Connection was closed before pong";
+        res = -1;
+    }
+
     el.stop();
-    
+
     event_loop.wait();
     event_loop.destroy();
+
+    return res;
 }
 
 void do_connect(int argc, char** argv)
@@ -181,8 +193,8 @@ void do_connect(int argc, char** argv)
         }
         else if (pid == 0)
         {
-            do_child(host, port, delay);
-            exit(0);
+            auto res = do_child(host, port, delay);
+            exit(res);
         }
     }
 
@@ -237,8 +249,11 @@ void do_listen(int argc, char** argv)
 
     const uint16_t port = std::atoi(argv[2]);
     event_loop.make_event_listener<Acceptor>(port);
+
     event_loop.wait();
     event_loop.destroy();
+
+    DLOG(INFO) << "Server terminated";
 }
 
 void print_help()

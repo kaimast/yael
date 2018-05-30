@@ -9,7 +9,7 @@ set -e
 set -x
 
 multi_client_test() {
-    ./multi-client-test listen 44444 > /dev/null &
+    ./multi-client-test listen 44444  &
     sleep 1
     ./multi-client-test connect localhost 44444 20 0
     killall -9 multi-client-test
