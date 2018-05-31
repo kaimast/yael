@@ -39,6 +39,25 @@ public:
      */
     bool is_valid() const override;
 
+    void wait_for_connection()
+    {
+        while(!is_valid())
+        {
+            if(!m_socket)
+            {
+                // busy wait while socket doesn't exist
+                continue;
+            }
+
+            if(m_socket->is_listening())
+            {
+                throw std::runtime_error("Cannot wait for connection. Is listening.");
+            }
+
+            m_socket->wait_connection_established();
+        }
+    }
+
     /// Callbacks
     virtual void on_network_message(network::Socket::message_in_t &msg) { (void)msg; }
     virtual void on_new_connection(std::unique_ptr<network::Socket> &&socket) { (void)socket; }

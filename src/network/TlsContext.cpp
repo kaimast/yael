@@ -41,7 +41,11 @@ bool TlsContext::wait_connected()
 
 void TlsContext::tls_process_data(buffer_t &buffer)
 {
-    m_channel->received_data(buffer.data, buffer.size);
+    if(m_channel)
+    {
+        // may happe during shutdown
+        m_channel->received_data(buffer.data, buffer.size);
+    }
 }
 
 void TlsContext::tls_verify_cert_chain(const std::vector<Botan::X509_Certificate>& cert_chain,
@@ -137,11 +141,6 @@ void TlsContext::tls_record_received(uint64_t seq_no, const uint8_t data[], size
 void TlsContext::tls_alert(Botan::TLS::Alert alert)
 {
     LOG(WARNING) << "Received TLS alert " << alert.type_string();
-
-    if(alert.is_fatal())
-    {
-        m_socket.close();
-    }
 }
 
 bool TlsContext::tls_session_established(const Botan::TLS::Session &session)

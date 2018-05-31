@@ -116,10 +116,8 @@ protected:
     
         m_connection2 = el.make_event_listener<Connection>(addr, GetParam());
 
-        while(!(m_connection1->is_valid() && m_connection2->is_valid()))
-        {
-            // busy wait
-        }
+        m_connection1->wait_for_connection();
+        m_connection2->wait_for_connection();
     }
 
     void TearDown() override

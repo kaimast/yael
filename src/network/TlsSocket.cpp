@@ -77,7 +77,6 @@ void TlsSocket::close()
     if(m_tls_context)
     {
         m_tls_context->close();
-        m_tls_context = nullptr;
     }
 
     TcpSocket::close();

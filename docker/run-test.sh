@@ -24,7 +24,7 @@ multi_client_delayed_test() {
 
 case $run_test in
     unit_test)
-        ./yael-test
+        ./yael-test --gtest_repeat=100
         ;;
     multi_client)
         multi_client_test
