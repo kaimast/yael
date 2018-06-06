@@ -52,10 +52,22 @@ private:
     const std::string m_key_path;
     const std::string m_cert_path;
 
+    enum class State
+    {
+        Unknown,
+        Listening,
+        Setup,
+        Connected,
+        Shutdown,
+        Closed
+    };
+
     std::unique_ptr<TlsContext> m_tls_context;
 
     // Buffer for raw data 
     buffer_t m_buffer;
+
+    State m_state;
 };
 
 }

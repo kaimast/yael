@@ -14,7 +14,7 @@ namespace network
 {
 
 TlsContext::TlsContext(TlsSocket &socket)
-    : m_connected(false), m_socket(socket), m_session_mgr(m_rng)
+    : m_socket(socket), m_session_mgr(m_rng)
 {
 }
 
@@ -27,16 +27,14 @@ void TlsContext::send(const Socket::message_out_t &message)
     m_channel->send(message.data, message.length);
 }
 
-bool TlsContext::wait_connected()
+void TlsContext::wait_connected()
 {
     std::unique_lock lock(m_mutex);
 
-    while(!m_connected)
+    while(!m_socket.is_connected())
     {
         m_cond_var.wait(lock);
     }
-
-    return m_connected;
 }
 
 void TlsContext::tls_process_data(buffer_t &buffer)
@@ -149,7 +147,7 @@ bool TlsContext::tls_session_established(const Botan::TLS::Session &session)
 
     std::unique_lock lock(m_mutex);
 
-    m_connected = true;
+    m_socket.m_state = TlsSocket::State::Connected;
     m_cond_var.notify_all();
     
     return false;

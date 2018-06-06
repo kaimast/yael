@@ -27,11 +27,9 @@ public:
 
     void send(const Socket::message_out_t &message);
 
-    bool wait_connected();
+    void wait_connected();
 
     void tls_process_data(buffer_t &buffer);
-
-    bool is_connected() const { return m_connected; }
 
     void close();
 
@@ -51,8 +49,6 @@ protected:
              Botan::Usage_Type usage,
              const std::string& hostname,
              const Botan::TLS::Policy& policy) override;
-
-    bool m_connected;
 
     std::mutex m_mutex;
     std::condition_variable m_cond_var;

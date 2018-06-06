@@ -12,11 +12,14 @@ namespace network
 
 TlsSocket::TlsSocket(const std::string &key_path, const std::string &cert_path)
     : m_key_path(key_path), m_cert_path(cert_path)
-{}
+{
+    m_state = State::Unknown;
+}
 
 TlsSocket::TlsSocket(int32_t fd, const std::string &key_path, const std::string &cert_path)
     : TcpSocket(fd), m_key_path(key_path), m_cert_path(cert_path)
 {
+    m_state = State::Setup;
     m_tls_context = std::make_unique<TlsServer>(*this, key_path, cert_path);
 }
 
@@ -64,19 +67,23 @@ bool TlsSocket::connect(const Address& address, const std::string& name)
 
 bool TlsSocket::wait_connection_established()
 {
-    return m_tls_context->wait_connected();
+    m_tls_context->wait_connected();
+    return is_connected();
 }
 
 bool TlsSocket::listen(const Address& address, uint32_t backlog)
 {
+    m_state = State::Listening;
     return TcpSocket::listen(address, backlog);
 }
 
 void TlsSocket::close()
 {
-    if(m_tls_context)
+    if(m_tls_context && m_state == State::Connected)
     {
+        m_state = State::Shutdown;
         m_tls_context->close();
+        m_state = State::Closed;
     }
 
     TcpSocket::close();
@@ -84,6 +91,11 @@ void TlsSocket::close()
 
 bool TlsSocket::send(const message_out_t& message)
 {
+    if(m_state != State::Connected)
+    {
+        return false;
+    }
+
     try {
         m_tls_context->send(message);
         return true;
@@ -96,7 +108,7 @@ bool TlsSocket::send(const message_out_t& message)
 
 bool TlsSocket::is_connected() const
 {
-    return m_tls_context->is_connected();
+    return m_state == State::Connected;
 }
 
 void TlsSocket::pull_messages() 
