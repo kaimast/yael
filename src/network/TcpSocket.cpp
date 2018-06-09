@@ -30,13 +30,13 @@ namespace network
 constexpr int TRUE_FLAG = 1;
 
 TcpSocket::TcpSocket()
-    : m_port(0), m_is_ipv6(false), m_fd(-1), m_listening(false)
+    : m_port(0), m_is_ipv6(false), m_fd(-1)
 {
     m_slicer = std::make_unique<MessageSlicer>();
 }
 
 TcpSocket::TcpSocket(int fd)
-    : m_port(0), m_is_ipv6(false), m_fd(fd), m_listening(false)
+    : m_port(0), m_is_ipv6(false), m_fd(fd)
 {
     m_slicer = std::make_unique<MessageSlicer>();
 
@@ -46,11 +46,13 @@ TcpSocket::TcpSocket(int fd)
 
     update_port_number();
     calculate_client_address();
+
+    m_state = State::Connected;
 }
 
 TcpSocket::~TcpSocket()
 {
-    TcpSocket::close();
+    TcpSocket::close(true);
 }
 
 bool TcpSocket::has_messages() const
@@ -147,7 +149,7 @@ bool TcpSocket::listen(const Address& address, uint32_t backlog)
 
     if(::listen(m_fd, backlog) == 0)
     {
-        m_listening = true;
+        m_state = State::Listening;
         return true;
     }
     else
@@ -224,6 +226,8 @@ bool TcpSocket::connect(const Address& address, const std::string& name)
     fcntl(m_fd, F_SETFL, flags);
 
     calculate_client_address();
+
+    m_state = State::Connected;
     return true;
 }
 
@@ -303,18 +307,28 @@ void TcpSocket::calculate_client_address()
     m_client_address.PortNumber = port;
 }
 
-void TcpSocket::close()
+void TcpSocket::close(bool fast)
 {
-    if(m_fd < 0)
+    if(m_state == State::Closed || m_state == State::Unknown)
     {
+        // no-op
         return;
     }
+    else if(m_state == State::Connected && !fast)
+    {
+        m_state = State::Shutdown;
+        int i = ::shutdown(m_fd, SHUT_RD | SHUT_WR);
+        (void)i; //unused
+    }
+    else
+    {
+        m_state = State::Closed;
+        int i = ::close(m_fd);
+        (void)i; //unused
+        m_fd = -1;
 
-    int i = ::close(m_fd);
-    (void)i; //unused
-    m_fd = -1;
-
-    m_slicer->buffer().reset();
+        m_slicer->buffer().reset();
+    }
 }
 
 void TcpSocket::pull_messages() 
@@ -372,8 +386,7 @@ bool TcpSocket::receive_data(buffer_t &buffer)
     }
     else if(x == 0)
     {
-        DLOG(INFO) << "Connection closed";
-        close();
+        close(true);
         return false;
     }
     else
@@ -385,8 +398,7 @@ bool TcpSocket::receive_data(buffer_t &buffer)
         case EAGAIN:
             break;
         case ECONNRESET:
-            DLOG(WARNING) << "Connection reset";
-            close();
+            close(true);
             break;
         default:
         {
@@ -459,7 +471,7 @@ bool TcpSocket::send(const message_out_t& message)
         else if(s == 0)
         {
             LOG(WARNING) << "Connection lost during send: Message may only be sent partially";
-            close();
+            close(true);
             return false;
         }
         else if(s < 0)
@@ -472,11 +484,10 @@ bool TcpSocket::send(const message_out_t& message)
             case ECONNRESET:
                 break;
             case EPIPE:
-                DLOG(WARNING) << "Received EPIPE";
-                close();
+                close(true);
                 return false;
             default:
-                close();
+                close(true);
                 throw socket_error(strerror(errno));
             }
         }

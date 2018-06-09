@@ -25,7 +25,7 @@ TlsSocket::TlsSocket(int32_t fd, const std::string &key_path, const std::string 
 
 TlsSocket::~TlsSocket()
 {
-    TlsSocket::close();
+    TlsSocket::close(true);
 }
 
 std::vector<Socket*> TlsSocket::accept()
@@ -77,16 +77,17 @@ bool TlsSocket::listen(const Address& address, uint32_t backlog)
     return TcpSocket::listen(address, backlog);
 }
 
-void TlsSocket::close()
+void TlsSocket::close(bool fast)
 {
-    if(m_tls_context && m_state == State::Connected)
+    if(m_tls_context && m_state == State::Connected
+        && !fast)
     {
         m_state = State::Shutdown;
         m_tls_context->close();
-        m_state = State::Closed;
     }
 
-    TcpSocket::close();
+    m_state = State::Closed;
+    TcpSocket::close(fast);
 }
 
 bool TlsSocket::send(const message_out_t& message)

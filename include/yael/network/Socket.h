@@ -137,7 +137,7 @@ public:
      * @brief close this socket
      * @note this function will not report error on invalid sockets
      */
-    virtual void close() = 0;
+    virtual void close(bool fast = false) = 0;
 
     //! Send a message consisting of a list of datagrams
     virtual bool send(const message_out_t& message) __attribute__((warn_unused_result)) = 0;

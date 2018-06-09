@@ -37,7 +37,7 @@ public:
 
     using Socket::listen;
 
-    virtual void close() override;
+    virtual void close(bool fast = false) override;
 
     inline bool wait_connection_established() override
     {
@@ -62,7 +62,6 @@ public:
     bool is_valid() const override { return m_fd > 0; }
 
 protected:
-
     //! Construct as a child socket
     //! Is only called by Socket::accept
     TcpSocket(int fd);
@@ -98,15 +97,24 @@ protected:
     //! File descriptor
     int m_fd;
 
-    //! Is this socket listening?
-    bool m_listening;
-
     //! The address of the connected client (if any)
     //! Will still be valid after close() was called
     //! Also used to register with the parent socket
     Address m_client_address;
 
     std::unique_ptr<MessageSlicer> m_slicer;
+
+private:
+    enum class State
+    {
+        Listening,
+        Connected,
+        Shutdown,
+        Closed,
+        Unknown
+    };
+
+    State m_state = State::Unknown;
 };
 
 inline int32_t TcpSocket::get_fileno() const
@@ -116,12 +124,12 @@ inline int32_t TcpSocket::get_fileno() const
 
 inline bool TcpSocket::is_connected() const
 {
-    return is_valid() && !m_listening;
+    return m_state == State::Connected;
 }
 
 inline bool TcpSocket::is_listening() const
 {
-    return is_valid() && m_listening;
+    return m_state == State::Listening;
 }
 
 }
