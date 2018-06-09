@@ -1,15 +1,22 @@
 [![Build Status](https://travis-ci.org/kaimast/yael.svg?branch=master)](https://travis-ci.org/kaimast/yael)
 
 # Yet Another Event Loop
-A very simple event loop for modern C++ built on top of epoll.
+An object-oriented event loop implementation built on top of epoll.
+
+Core Features:
+* Written in modern C++
+* Thread-safe but mostly lock free
+* Supports both time and network events
+* Networking abstaction for TCP and TLS
 
 ## Building
-This project depends on the google, testing, mocking, and logging frameworks.
+This project depends on the google testing and logging frameworks.
 
-For building you further need meson-build, ninja, and a recent (>= C++14) compiler.
+For building you further need meson-build, libbotan, ninja, and a recent (>= C++17) compiler.
 
 ## Usage
-To make your socket handler compatible with the event loop just use the SocketListener interface
+To make your socket handler compatible with the event loop just use the NetworkSocketListener interface
+
 ```
 class MyServer : protected NetworkSocketListener
 {
@@ -17,7 +24,7 @@ public:
     bool init()
     {
         auto socket = new network::Socket();
-        bool res = socket->listen("localhost", BENCHMARK_PORT, 100);
+        bool res = socket->listen("localhost", 4242, 100);
 
         if(!res)
         {
@@ -25,16 +32,15 @@ public:
             return false;
         }
 
-        socket->set_blocking(false);
-
         NetworkSocketListener::set_socket(socket);
         return true;
     }
 
 protected:
-    void update() override
+    void on_new_connection(std::unique_ptr<yael::network::Socket> &&socket) override
     {
-       // Call accept() on the socket here...
+        auto &el = EventLoop::get_instance();
+        el.make_socket_listener<MyClientHandler>(std::move(socket));
     }
 };
 ```
