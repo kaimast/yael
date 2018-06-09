@@ -4,10 +4,11 @@
 An object-oriented event loop implementation built on top of epoll.
 
 Core Features:
-* Written in modern C++
+* Written in modern C++ and raw pointers whenever possible
+* Event loop will maintain a thread loop for you, no need to start your own worker threads
 * Thread-safe but mostly lock free
 * Supports both time and network events
-* Networking abstaction for TCP and TLS
+* Networking abstraction for TCP and TLS
 
 ## Building
 This project depends on the google testing and logging frameworks.
