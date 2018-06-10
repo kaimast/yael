@@ -35,13 +35,15 @@ public:
     int32_t get_fileno() const override;
 
     /**
-     * @brief returns true if the associated socket is connected
+     * @brief returns true if the associated socket exists (either connected, connecting, shutting down, or listening)
      */
     bool is_valid() const override;
 
+    bool is_connected() const;
+
     void wait_for_connection()
     {
-        while(!is_valid())
+        while(!is_connected())
         {
             if(!m_socket)
             {

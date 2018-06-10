@@ -70,8 +70,7 @@ DelayedNetworkSocketListener::~DelayedNetworkSocketListener()
 {
     if(EventLoop::is_initialized() && m_sender != nullptr)
     {
-        auto &el = EventLoop::get_instance();
-        el.unregister_event_listener(m_sender, true);
+        m_sender->close();
     }
 }
 

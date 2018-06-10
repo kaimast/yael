@@ -177,29 +177,29 @@ void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, int32_t f
     }
 }
 
-void EventLoop::unregister_event_listener(EventListenerPtr listener, bool purge)
+void EventLoop::unregister_event_listener(EventListenerPtr listener)
 {
     std::unique_lock lock(m_event_listeners_mutex);
+
+    if(listener->is_valid())
+    {
+        LOG(FATAL) << "Cannot unregister event listener while still valid";
+    }
 
     auto fileno = listener->get_fileno();
     auto it = m_event_listeners.find(fileno);
 
     if(it == m_event_listeners.end())
     {
-        if(purge)
-        {
-            // ignore
-        }
-        else
-        {
-            LOG(WARNING) << "Event listener already unregistered";
-        }
+        LOG(WARNING) << "Event listener already unregistered";
     }
     else
     {
-        int res = epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fileno, nullptr);
-        (void)res;
-
+        // in most cases the socket is already unregistered
+        // (except for when releasing the socket manually)
+        int epoll_res = epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fileno, nullptr);
+        (void)epoll_res; 
+        
         delete it->second;
         m_event_listeners.erase(it);
     }
@@ -219,6 +219,12 @@ void EventLoop::thread_loop()
 
         listener->lock();
         listener->update();
+
+        if(!listener->is_valid())
+        {
+            unregister_event_listener(listener);
+        }
+
         listener->unlock();
     }
 }

@@ -309,12 +309,7 @@ void TcpSocket::calculate_client_address()
 
 void TcpSocket::close(bool fast)
 {
-    if(m_state == State::Closed || m_state == State::Unknown)
-    {
-        // no-op
-        return;
-    }
-    else if(m_state == State::Connected && !fast)
+    if(m_state == State::Connected && !fast)
     {
         m_state = State::Shutdown;
         int i = ::shutdown(m_fd, SHUT_RD | SHUT_WR);
@@ -322,12 +317,24 @@ void TcpSocket::close(bool fast)
     }
     else
     {
-        m_state = State::Closed;
-        int i = ::close(m_fd);
-        (void)i; //unused
-        m_fd = -1;
+        if(m_fd > 0)
+        {
+            m_state = State::Closed;
+            int i = ::close(m_fd);
+            (void)i; //unused
+            m_fd = -1;
 
-        m_slicer->buffer().reset();
+            m_slicer->buffer().reset();
+        }
+        else
+        {
+            if(!(m_state == State::Closed || m_state == State::Unknown))
+            {
+                throw socket_error("Invalid state");
+            }
+
+            //no-op
+        }
     }
 }
 
@@ -406,7 +413,7 @@ bool TcpSocket::receive_data(buffer_t &buffer)
             str += strerror(errno);
 
             // First close socket and then throw the error!
-            close();
+            close(true);
             throw socket_error(str);
         }
         }

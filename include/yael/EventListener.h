@@ -34,7 +34,7 @@ public:
     std::mutex& mutex();
 
     /**
-     * Does the underlying socket have messages
+     * Is the underlying socket still valid
      */
     virtual bool is_valid() const = 0;
 

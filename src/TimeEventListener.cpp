@@ -1,6 +1,7 @@
-#include "yael/TimeEventListener.h"
 
 #include <sys/timerfd.h>
+#include <yael/EventLoop.h>
+#include <yael/TimeEventListener.h>
 
 namespace yael
 {
@@ -13,10 +14,21 @@ TimeEventListener::TimeEventListener()
 
 TimeEventListener::~TimeEventListener()
 {
+    close();
+}
+
+void TimeEventListener::close()
+{
     if(m_fd != 0)
     {
-        close(m_fd);
+        ::close(m_fd);
         m_fd = 0;
+
+        if(!m_is_scheduled && EventLoop::is_initialized())
+        {
+            auto &el = EventLoop::get_instance();
+            el.unregister_event_listener(shared_from_this());
+        }
     }
 }
 
@@ -27,6 +39,7 @@ void TimeEventListener::update()
 
     if(buf == 1)
     {
+        m_is_scheduled = false;
         this->on_time_event();
     }
     else if(buf == 0)
@@ -41,6 +54,16 @@ void TimeEventListener::update()
 
 void TimeEventListener::schedule(uint64_t delay)
 {
+    if(!is_valid())
+    {
+        throw std::runtime_error("Cannot schedule event: socket already closed");
+    }
+
+    if(m_is_scheduled)
+    {
+        throw std::runtime_error("Cannot schedule: Time event listener already scheduled");
+    }
+
     int32_t flags = 0;
     itimerspec new_value;
     new_value.it_interval.tv_sec = 0;
@@ -63,7 +86,11 @@ void TimeEventListener::schedule(uint64_t delay)
 
     auto res = timerfd_settime(m_fd, flags, &new_value, &old_value);
 
-    if(res != 0)
+    if(res == 0)
+    {
+        m_is_scheduled = true;
+    }
+    else
     {
         LOG(ERROR) << "Failed to set time event";
     }

@@ -54,6 +54,16 @@ bool NetworkSocketListener::is_valid() const
         return false;
     }
 
+    return m_socket->is_valid();
+}
+
+bool NetworkSocketListener::is_connected() const
+{
+    if(!m_socket)
+    {
+        return false;
+    }
+
     return m_socket->is_connected();
 }
 
@@ -116,13 +126,6 @@ void NetworkSocketListener::close_socket()
         m_socket->close();
         
         this->on_disconnect();
-
-        // Don't unregister during event loop shutdown
-        if(EventLoop::is_initialized())
-        {
-            auto &el = EventLoop::get_instance();
-            el.unregister_event_listener(std::dynamic_pointer_cast<EventListener>(shared_from_this()));
-        }
     }
 }
 

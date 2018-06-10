@@ -83,16 +83,7 @@ public:
      */
     uint64_t get_time() const;
 
-    /**
-     * Unregister an event listener
-     * This will mark the reference to the listener to be removed once all events have been processed
-     * 
-     * Note: you must hold the lock to listener before calling this function
-     *
-     * @param purge [optional]
-     *      if set to true it will discard all pending events
-     */
-    void unregister_event_listener(EventListenerPtr listener, bool purge = false);
+    void unregister_event_listener(EventListenerPtr listener);
 
     static bool is_initialized() 
     {
