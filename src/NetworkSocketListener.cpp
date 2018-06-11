@@ -24,6 +24,8 @@ std::unique_ptr<network::Socket> NetworkSocketListener::release_socket()
     // Move socket before we unregistered so socket doesn't get closed
     auto sock = std::move(m_socket);
 
+    ///FIXME we should tell event listener to remap the socket
+    // the current approach can cause race conditions...
     auto &el = EventLoop::get_instance();
     el.unregister_event_listener(std::dynamic_pointer_cast<EventListener>(shared_from_this()));
 

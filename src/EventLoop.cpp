@@ -13,7 +13,28 @@ namespace yael
 /// A thread can handle at most one event
 constexpr int32_t MAX_EVENTS = 1;
 
-constexpr int32_t EPOLL_FLAGS = EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLET;
+inline void increment_semaphore(int32_t fd)
+{
+    constexpr uint64_t SEMAPHORE_INC = 1;
+
+    auto res = write(fd, &SEMAPHORE_INC, sizeof(SEMAPHORE_INC));
+    if(res != sizeof(SEMAPHORE_INC))
+    {
+        LOG(FATAL) << "eventfd write failed";
+    }
+}
+
+inline void decrement_semaphore(int32_t fd)
+{
+    uint64_t val = 0;
+
+    auto res = read(fd, &val, sizeof(val));
+
+    if(res != sizeof(val) || val == 0)
+    {
+        LOG(FATAL) << "Invalid state";
+    }
+}
 
 EventLoop::EventLoop(int32_t num_threads)
     : m_okay(true), m_epoll_fd(epoll_create1(0)),
@@ -24,7 +45,7 @@ EventLoop::EventLoop(int32_t num_threads)
         LOG(FATAL) << "epoll_create1() failed: " << strerror(errno);
     }
 
-    register_socket(m_event_semaphore, nullptr, EPOLLIN | EPOLLET);
+    register_socket(m_event_semaphore, nullptr, EPOLLIN | EPOLLET, false);
 }
 
 EventLoop::~EventLoop()
@@ -76,7 +97,7 @@ void EventLoop::stop()
     }
 
     m_okay = false;
-    eventfd_write(m_event_semaphore, 1);
+    increment_semaphore(m_event_semaphore);
 }
 
 uint64_t EventLoop::get_time() const
@@ -87,7 +108,7 @@ uint64_t EventLoop::get_time() const
     return std::chrono::duration_cast<std::chrono::milliseconds>(res.time_since_epoch()).count();
 }
 
-EventListenerPtr EventLoop::update()
+EventListenerPtr* EventLoop::update()
 {
     epoll_event events[MAX_EVENTS];
     int nfds = -1;
@@ -101,8 +122,10 @@ EventListenerPtr EventLoop::update()
     if(!m_okay)
     {
         // Event loop was terminated
-        // Wake up next thread
-        eventfd_write(m_event_semaphore, 1);
+        // Consume and wake up next thread
+        decrement_semaphore(m_event_semaphore);
+        increment_semaphore(m_event_semaphore);
+
         return nullptr;
     }
 
@@ -137,8 +160,7 @@ EventListenerPtr EventLoop::update()
     }
     else
     {
-        auto listener = reinterpret_cast<EventListenerPtr*>(ptr);
-        return *listener;
+        return reinterpret_cast<EventListenerPtr*>(ptr);
     }
 }
 
@@ -151,7 +173,7 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
 
     if(!res.second)
     {
-        LOG(FATAL) << "Listener already registered";
+        LOG(FATAL) << "Listener #" << idx << " already registered";
     }
 
     auto fileno = listener->get_fileno();
@@ -164,13 +186,17 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
     register_socket(fileno, ptr);
 }
 
-void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, int32_t flags)
+void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t flags, bool modify)
 {
+    constexpr uint32_t DEFAULT_EPOLL_FLAGS = EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLET | EPOLLONESHOT;
+
     struct epoll_event ev;
-    ev.events = flags < 0 ? EPOLL_FLAGS : flags;
+    ev.events = flags == 0 ? DEFAULT_EPOLL_FLAGS : flags;
     ev.data.ptr = ptr;
 
-    int epoll_res = epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, fileno, &ev);
+    auto op = modify ? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
+
+    int epoll_res = epoll_ctl(m_epoll_fd, op, fileno, &ev);
     if(epoll_res != 0)
     {
         LOG(FATAL) << "epoll_ctl() failed: " << strerror(errno);
@@ -191,11 +217,10 @@ void EventLoop::unregister_event_listener(EventListenerPtr listener)
 
     if(it == m_event_listeners.end())
     {
-        LOG(WARNING) << "Event listener already unregistered";
+        LOG(WARNING) << "Event listener #" << fileno << " already unregistered";
     }
     else
     {
-        // in most cases the socket is already unregistered
         // (except for when releasing the socket manually)
         int epoll_res = epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fileno, nullptr);
         (void)epoll_res; 
@@ -209,18 +234,24 @@ void EventLoop::thread_loop()
 {
     while(this->is_okay())
     {
-        auto listener = update();
-
-        if(listener == nullptr)
+        auto ptr = update();
+        if(ptr == nullptr)
         {
             // terminate
             return;
         }
 
+        auto listener = *ptr;
+
         listener->lock();
         listener->update();
 
-        if(!listener->is_valid())
+        if(listener->is_valid())
+        {
+            // oneshot ensures only one thread processes this handler
+            register_socket(listener->get_fileno(), ptr, 0, true);
+        }
+        else
         {
             unregister_event_listener(listener);
         }

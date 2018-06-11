@@ -96,11 +96,12 @@ private:
 
     void run();
     
-    EventListenerPtr update();
+    EventListenerPtr* update();
     
     void thread_loop();
 
-    void register_socket(int32_t fileno, EventListenerPtr *ptr, int32_t flags = -1);
+    void register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t flags = 0, bool modify = false);
+
     void unregister_socket(int32_t fileno);
 
     static EventLoop* m_instance;

@@ -70,7 +70,9 @@ DelayedNetworkSocketListener::~DelayedNetworkSocketListener()
 {
     if(EventLoop::is_initialized() && m_sender != nullptr)
     {
+        m_sender->lock();
         m_sender->close();
+        m_sender->unlock();
     }
 }
 

@@ -19,12 +19,12 @@ TimeEventListener::~TimeEventListener()
 
 void TimeEventListener::close()
 {
-    if(m_fd != 0)
+    if(m_fd > 0 && !m_is_scheduled)
     {
         ::close(m_fd);
-        m_fd = 0;
+        m_fd = -1;
 
-        if(!m_is_scheduled && EventLoop::is_initialized())
+        if(EventLoop::is_initialized())
         {
             auto &el = EventLoop::get_instance();
             el.unregister_event_listener(shared_from_this());
