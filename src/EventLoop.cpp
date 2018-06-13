@@ -171,12 +171,14 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
     std::unique_lock lock(m_event_listeners_mutex);
     auto idx = listener->get_fileno();
     auto ptr = new EventListenerPtr(listener);
-    auto res = m_event_listeners.emplace(idx, ptr);
+    /*auto res = m_event_listeners.emplace(idx, ptr);
 
     if(!res.second)
     {
         LOG(FATAL) << "Listener #" << idx << " already registered";
-    }
+    } FIXME */
+
+    m_event_listeners[idx] = ptr;
 
     auto fileno = listener->get_fileno();
 
