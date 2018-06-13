@@ -50,6 +50,8 @@ EventLoop::EventLoop(int32_t num_threads)
 
 EventLoop::~EventLoop()
 {
+    std::unique_lock lock(m_event_listeners_mutex);
+
     for(auto &[fileno, ptr] : m_event_listeners)
     {
         (void)fileno;
