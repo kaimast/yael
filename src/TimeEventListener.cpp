@@ -19,7 +19,7 @@ TimeEventListener::~TimeEventListener()
 
 void TimeEventListener::close()
 {
-    if(m_fd > 0 && !m_is_scheduled)
+    if(m_fd > 0 && m_queued_events.empty())
     {
         ::close(m_fd);
         m_fd = -1;
@@ -39,8 +39,32 @@ void TimeEventListener::update()
 
     if(buf == 1)
     {
-        m_is_scheduled = false;
-        this->on_time_event();
+        auto now = get_current_time();
+
+        while(true)
+        {
+            if(m_queued_events.empty())
+            {
+                break;
+            }
+
+            auto it = m_queued_events.begin();
+            if(*it <= now)
+            {
+                this->on_time_event();
+                m_queued_events.erase(it);
+            }
+            else
+            {
+                break;
+            }
+        }
+
+        if(!m_queued_events.empty())
+        {
+            auto delay = m_queued_events[0] - now;
+            internal_schedule(delay);
+        }
     }
     else if(buf == 0)
     {
@@ -59,11 +83,44 @@ void TimeEventListener::schedule(uint64_t delay)
         throw std::runtime_error("Cannot schedule event: socket already closed");
     }
 
-    if(m_is_scheduled)
+    bool is_scheduled = !m_queued_events.empty();
+    bool inserted = false;
+    bool first = true;
+
+    auto start = get_current_time() + delay;
+
+    for(auto it = m_queued_events.begin(); it != m_queued_events.end(); ++it)
     {
-        throw std::runtime_error("Cannot schedule: Time event listener already scheduled");
+        if(*it > start)
+        {
+            m_queued_events.insert(it, start);
+            inserted = false;
+            break;
+        }
+        else
+        {
+            first = false;
+        }
     }
 
+    if(!inserted)
+    {
+        m_queued_events.push_back(start);
+    }
+
+    if(first)
+    {
+        is_scheduled = false;
+    }
+
+    if(!is_scheduled)
+    {
+        internal_schedule(delay);
+    }
+}
+
+void TimeEventListener::internal_schedule(uint64_t delay)
+{
     int32_t flags = 0;
     itimerspec new_value;
     new_value.it_interval.tv_sec = 0;
@@ -86,11 +143,7 @@ void TimeEventListener::schedule(uint64_t delay)
 
     auto res = timerfd_settime(m_fd, flags, &new_value, &old_value);
 
-    if(res == 0)
-    {
-        m_is_scheduled = true;
-    }
-    else
+    if(res != 0)
     {
         LOG(ERROR) << "Failed to set time event";
     }

@@ -8,23 +8,25 @@ namespace yael
 class DelayedMessageSender: public TimeEventListener
 {
 public:
-    DelayedMessageSender(network::Socket &socket)
+    DelayedMessageSender(network::Socket *socket)
         : m_socket(socket)
     {}
 
     void on_time_event() override
     {
-        if(!m_socket.is_valid())
+        if(!m_socket || !m_socket->is_valid())
         {
             return;
         }
+
+        auto &socket = *m_socket;
         
         auto it = m_pending_messages.front();
         auto &[data, length] = it;
         bool res;
 
         try {
-            res = m_socket.send(data, length);
+            res = socket.send(data, length);
             delete []data;
         } catch(network::socket_error &e) {
             res = false;
@@ -34,6 +36,12 @@ public:
         (void)res;
 
         m_pending_messages.pop_front();
+    }
+
+    void close()
+    {
+        m_socket = nullptr;
+        TimeEventListener::close();
     }
 
     void schedule(const uint8_t *data, size_t length, uint32_t delay)
@@ -47,8 +55,7 @@ public:
 
 private:
     std::list<std::pair<uint8_t*, size_t>> m_pending_messages;
-
-    network::Socket &m_socket;
+    network::Socket *m_socket;
 };
 
 
@@ -96,11 +103,9 @@ void DelayedNetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &
     if(m_delay > 0)
     {
         auto &el = EventLoop::get_instance();
-        m_sender = el.make_event_listener<DelayedMessageSender>(*socket);
-
-        DLOG(INFO) << "Created delayed socket with " << m_delay << " ms delay";
+        m_sender = el.make_event_listener<DelayedMessageSender>(socket.get());
     }
-        
+    
     NetworkSocketListener::set_socket(std::move(socket), type);
 }
 
