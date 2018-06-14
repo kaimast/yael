@@ -192,7 +192,7 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
 
 void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t flags, bool modify)
 {
-    constexpr uint32_t DEFAULT_EPOLL_FLAGS = EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLET | EPOLLONESHOT;
+    constexpr uint32_t DEFAULT_EPOLL_FLAGS = EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLONESHOT;
 
     struct epoll_event ev;
     ev.events = flags == 0 ? DEFAULT_EPOLL_FLAGS : flags;
