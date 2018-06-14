@@ -8,7 +8,7 @@ namespace yael
 
 TimeEventListener::TimeEventListener()
 {
-    int32_t flags = 0;
+    constexpr int32_t flags = 0;
     m_fileno = m_fd = timerfd_create(CLOCK_REALTIME, flags);
 }
 
@@ -64,8 +64,14 @@ void TimeEventListener::update()
 
         if(!m_queued_events.empty())
         {
-            auto delay = m_queued_events[0] - now;
-            internal_schedule(delay);
+            auto next = m_queued_events[0];
+
+            if(next < now)
+            {
+                LOG(FATAL) << "Invalid state";
+            }
+
+            internal_schedule(next - now);
         }
     }
     else if(buf == 0)

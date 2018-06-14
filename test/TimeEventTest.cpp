@@ -40,28 +40,31 @@ TEST(TimeEventTest, multi_schedule)
     EventLoop::initialize();
     auto &el = EventLoop::get_instance();
 
+    const uint32_t expected1 = 1;
+    const uint32_t expected2 = 2;
+
     auto hdl = el.make_event_listener<TestTimeListener>();
     hdl->lock();
     hdl->schedule(100);
     hdl->unlock();
 
-    while(hdl->count < 1)
+    while(hdl->count < expected1)
     {
         //pass
     }
 
-    EXPECT_EQ(1, hdl->count);
+    EXPECT_EQ(expected1, hdl->count);
 
     hdl->lock();
     hdl->schedule(100);
     hdl->unlock();
 
-    while(hdl->count < 2)
+    while(hdl->count < expected2)
     {
         //pass
     }
 
-    EXPECT_EQ(2, hdl->count);
+    EXPECT_EQ(expected2, hdl->count);
 
     el.stop();
     el.wait();

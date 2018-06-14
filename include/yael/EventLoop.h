@@ -44,7 +44,7 @@ public:
         return l;
     }
 
-    void register_event_listener(EventListenerPtr sl);
+    void register_event_listener(EventListenerPtr listener);
 
     /**
      * Shut the event loop down

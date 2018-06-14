@@ -14,7 +14,7 @@ public:
 
     void on_time_event() override
     {
-        if(!m_socket || !m_socket->is_valid())
+        if(m_socket == nullptr || !m_socket->is_valid())
         {
             return;
         }
