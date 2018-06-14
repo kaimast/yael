@@ -77,13 +77,14 @@ TEST(TimeEventTest, self_schedule)
     EventLoop::initialize();
     auto &el = EventLoop::get_instance();
 
+    constexpr uint64_t expected = 10;
     auto hdl = el.make_event_listener<TestTimeListener2>();
 
     hdl->lock();
     hdl->schedule(0);
     hdl->unlock();
 
-    while(hdl->count != 10)
+    while(hdl->count != expected)
     {
         //pass
     }
@@ -93,7 +94,7 @@ TEST(TimeEventTest, self_schedule)
 
     EventLoop::destroy();
 
-    EXPECT_EQ(10, hdl->count);
+    EXPECT_EQ(expected, hdl->count);
 }
 
 TEST(TimeEventTest, schedule_three)

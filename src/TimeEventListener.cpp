@@ -41,6 +41,8 @@ void TimeEventListener::update()
     {
         auto now = get_current_time();
 
+        size_t count = 0;
+
         while(true)
         {
             if(m_queued_events.empty())
@@ -55,6 +57,8 @@ void TimeEventListener::update()
                 // because application code might call schedule()
                 m_queued_events.erase(it);
                 this->on_time_event();
+
+                count++;
             }
             else
             {
@@ -72,6 +76,11 @@ void TimeEventListener::update()
             }
 
             internal_schedule(next - now);
+        }
+
+        if(count == 0)
+        {
+            LOG(WARNING) << "Couldn't find a scheduled event";
         }
     }
     else if(buf == 0)
