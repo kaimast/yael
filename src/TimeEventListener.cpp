@@ -51,8 +51,10 @@ void TimeEventListener::update()
             auto it = m_queued_events.begin();
             if(*it <= now)
             {
-                this->on_time_event();
+                // erase befroe we invoke the callback
+                // because application code might call schedule()
                 m_queued_events.erase(it);
+                this->on_time_event();
             }
             else
             {
@@ -89,13 +91,12 @@ void TimeEventListener::schedule(uint64_t delay)
 
     auto start = get_current_time() + delay;
 
-    for(auto it = m_queued_events.begin(); it != m_queued_events.end(); ++it)
+    for(auto it = m_queued_events.begin(); !inserted && it != m_queued_events.end(); ++it)
     {
         if(*it > start)
         {
             m_queued_events.insert(it, start);
-            inserted = false;
-            break;
+            inserted = true;
         }
         else
         {
