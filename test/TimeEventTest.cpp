@@ -122,3 +122,29 @@ TEST(TimeEventTest, schedule_three)
 
     EXPECT_EQ(3, hdl->count);
 }
+
+TEST(TimeEventTest, schedule_three2)
+{
+    EventLoop::initialize();
+    auto &el = EventLoop::get_instance();
+
+    auto hdl = el.make_event_listener<TestTimeListener>();
+
+    hdl->lock();
+    hdl->schedule(0);
+    hdl->schedule(0);
+    hdl->schedule(0);
+    hdl->unlock();
+
+    while(hdl->count != 3)
+    {
+        //pass
+    }
+
+    el.stop();
+    el.wait();
+
+    EventLoop::destroy();
+
+    EXPECT_EQ(3, hdl->count);
+}

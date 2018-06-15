@@ -26,17 +26,17 @@ public:
         return std::chrono::duration_cast<std::chrono::milliseconds>(current_time).count();
     }
 
+    bool is_valid() const override final
+    {
+        return m_fd > 0;
+    }
+
 private:
     void internal_schedule(uint64_t delay);
 
     int32_t get_fileno() const override final
     {
         return m_fileno;
-    }
-
-    bool is_valid() const override final
-    {
-        return m_fd > 0;
     }
 
     void update() override final;
