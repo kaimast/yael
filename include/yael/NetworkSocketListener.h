@@ -77,6 +77,11 @@ public:
 
     void close_socket();
 
+    const network::Socket& socket() const
+    {
+        return *m_socket;
+    }
+
 protected:
     /**
      * @brief Hand a valid socket to the listener
