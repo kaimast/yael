@@ -32,3 +32,5 @@ jobs:
     - docker run --rm -it -e run_test=unit_test yael ../docker/run-test.sh
     - docker run --rm -it -e run_test=multi_client yael ../docker/run-test.sh
     - docker run --rm -it -e run_test=multi_client_delayed yael ../docker/run-test.sh
+    - docker run --rm -it -e run_test=churn yael ../docker/run-test.sh
+ 

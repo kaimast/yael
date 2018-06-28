@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <shared_mutex>
 #include <vector>
+#include <condition_variable>
 #include <atomic>
 #include <list>
 #include <stdint.h>
@@ -111,6 +112,8 @@ private:
     std::list<std::thread> m_threads;
 
     std::shared_mutex m_event_listeners_mutex;
+    std::condition_variable_any m_event_listeners_cond;
+
     std::unordered_map<int32_t, EventListenerPtr*> m_event_listeners;
 
     const int32_t m_epoll_fd;

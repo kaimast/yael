@@ -121,13 +121,10 @@ EventListenerPtr* EventLoop::update()
         nfds = epoll_wait(m_epoll_fd, events, MAX_EVENTS, timeout);
     }
 
-    if(!m_okay)
+    if(!m_okay && nfds == 0)
     {
-        // Event loop was terminated
-        // Consume and wake up next thread
-        decrement_semaphore(m_event_semaphore);
+        // Event loop was terminated; wakeup next thrad
         increment_semaphore(m_event_semaphore);
-
         return nullptr;
     }
 
@@ -154,11 +151,19 @@ EventListenerPtr* EventLoop::update()
     if(ptr == nullptr) // it's the event semaphore
     {
         // Consume it so the event fd doesn't overflow
-        eventfd_t val;
-        eventfd_read(m_event_semaphore, &val);
+        decrement_semaphore(m_event_semaphore);
 
-        DLOG(WARNING) << "Spurious wakeup";
-        return update();
+        if(m_okay)
+        {
+            DLOG(WARNING) << "Spurious wakeup";
+            return update();
+        }
+        else
+        {
+            // Event loop was terminated; wakeup next thrad
+            increment_semaphore(m_event_semaphore);
+            return nullptr;
+        }
     }
     else
     {
@@ -169,14 +174,24 @@ EventListenerPtr* EventLoop::update()
 void EventLoop::register_event_listener(EventListenerPtr listener)
 {
     std::unique_lock lock(m_event_listeners_mutex);
+
     auto idx = listener->get_fileno();
     auto ptr = new EventListenerPtr(listener);
-    /*auto res = m_event_listeners.emplace(idx, ptr);
 
-    if(!res.second)
+    while(true)
     {
-        LOG(FATAL) << "Listener #" << idx << " already registered";
-    } FIXME */
+        auto res = m_event_listeners.emplace(idx, ptr);
+        
+        if(res.second)
+        {
+            break;
+        }
+        else
+        {
+            // wait for other thread to process old event listener disconnect
+            m_event_listeners_cond.wait(lock);
+        }
+    }
 
     m_event_listeners[idx] = ptr;
 
@@ -231,6 +246,7 @@ void EventLoop::unregister_event_listener(EventListenerPtr listener)
         
         delete it->second;
         m_event_listeners.erase(it);
+        m_event_listeners_cond.notify_all();
     }
 }
 

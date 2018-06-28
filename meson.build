@@ -27,6 +27,8 @@ yael_dep = declare_dependency(link_with: yael)
 
 many_clients = executable('multi-client-test', ['test/multi_client.cpp'],link_with: yael, dependencies: [log_dep, thread_dep], include_directories: [incdir], cpp_args: compile_args)
 
+churn = executable('churn-test', ['test/churn.cpp'],link_with: yael, dependencies: [log_dep, thread_dep], include_directories: [incdir], cpp_args: compile_args)
+
 subdir('test')
 
 executable('yael-test', test_cpp_files, link_with: yael, dependencies: [log_dep, thread_dep, gtest_dep, gflags_dep], include_directories: [incdir], cpp_args: compile_args)

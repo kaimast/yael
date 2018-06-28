@@ -22,9 +22,20 @@ multi_client_delayed_test() {
     killall -9 multi-client-test
 }
 
+churn_test() {
+    ./churn-test listen 44444  &
+    sleep 1
+    ./churn-test connect localhost 44444 20 0
+    killall -9 churn-test
+}
+
+
 case $run_test in
     unit_test)
         ./yael-test --gtest_repeat=100
+        ;;
+    churn)
+        churn_test
         ;;
     multi_client)
         multi_client_test

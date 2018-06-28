@@ -36,8 +36,6 @@ class Peer : public yael::DelayedNetworkSocketListener
 public:
     Peer(const std::string &host, uint16_t port, uint32_t delay);
     Peer(std::unique_ptr<yael::network::Socket> &&s, uint32_t delay = 0);
-    void send(const std::string &msg);
-    bool done = false;
 
 protected:
     void on_network_message(yael::network::Socket::message_in_t &msg) override;
@@ -77,7 +75,7 @@ Peer::Peer(const std::string &host, uint16_t port, uint32_t delay)
     bool success = sock->connect(addr);
     if (!success)
     {
-        throw std::runtime_error("Failed to connect to other server");
+        throw std::runtime_error("Failed to connect to server");
     }
 
     set_socket(std::unique_ptr<network::Socket>{sock}, SocketType::Connection);
@@ -90,32 +88,9 @@ Peer::Peer(std::unique_ptr<yael::network::Socket> &&s, uint32_t delay)
     LOG(INFO) << "new peer connected";
 }
 
-void Peer::send(const std::string &msg)
-{
-    const uint8_t *data = reinterpret_cast<const uint8_t*>(msg.c_str());
-    const uint32_t length = msg.size();
-    bool result = DelayedNetworkSocketListener::send(data, length);
-
-    if (!result)
-    {
-        throw std::runtime_error("Failed to send message");
-    }
-}
-
 void Peer::on_network_message(yael::network::Socket::message_in_t &msg)
 {
-    std::string message = to_string(msg);
-    LOG(INFO) << "got message: " << message;
-
-    if (message == "ping")
-    {
-        send("pong");
-    }
-    else if (message == "pong")
-    {
-        std::this_thread::sleep_for(10ms);
-        done = true;
-    }
+    (void)msg;
 }
 
 void stop_handler(int)
@@ -137,20 +112,12 @@ int do_child(const std::string &host, uint16_t port, uint32_t delay)
     signal(SIGTERM, stop_handler);
 
     auto &el = EventLoop::get_instance();
-    auto c = event_loop.make_event_listener<Peer>(host, port, delay);
 
-    c->send("ping");
-    while (!c->done && c->is_valid())
+    for(size_t i = 0; i < 1000; ++i)
     {
-        std::this_thread::sleep_for(10ms);
-    }
-
-    int res = 0;
-
-    if(!c->done)
-    {
-        LOG(ERROR) << "Connection was closed before pong";
-        res = -1;
+        auto c = event_loop.make_event_listener<Peer>(host, port, delay);
+        c->wait_for_connection();
+        c->close_socket();
     }
 
     el.stop();
@@ -158,7 +125,7 @@ int do_child(const std::string &host, uint16_t port, uint32_t delay)
     event_loop.wait();
     event_loop.destroy();
 
-    return res;
+    return 0;
 }
 
 void do_connect(int argc, char** argv)
@@ -248,8 +215,8 @@ void do_listen(int argc, char** argv)
 void print_help()
 {
     std::cout << "usage: " << std::endl
-              << "   ./multi-client-test listen  <listen-port>" << std::endl
-              << "   ./multi-client-test connect <upstream-host> <upstream-port> <num_connection> <delay>" << std::endl
+              << "   ./churn-test listen  <listen-port>" << std::endl
+              << "   ./churn-test connect <upstream-host> <upstream-port> <num_connection> <delay>" << std::endl
               << std::endl;
     exit(1);
 }
