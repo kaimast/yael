@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <sstream>
 #include <netinet/in.h>
+#include <iostream>
 
 namespace yael
 {
@@ -79,14 +80,6 @@ struct Address
         return (*this);
     }
 
-    std::string toString() const
-    {
-        std::stringstream sstr;
-        sstr << IP << ":" << PortNumber;
-
-        return sstr.str();
-    }
-
     void reset()
     {
         IP = "";
@@ -101,6 +94,11 @@ struct Address
  * @brief Instantiate a network Address by URL instead of IP
  */
 Address resolve_URL(const std::string &url, uint16_t port_number, bool IPv6 = false);
+
+inline std::ostream& operator<<(std::ostream &os, const Address &addr)
+{
+    return os << addr.IP << ':' << addr.PortNumber;
+}
 
 }
 }
