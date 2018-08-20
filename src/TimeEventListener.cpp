@@ -77,11 +77,6 @@ void TimeEventListener::update()
 
             internal_schedule(next - now);
         }
-
-        if(count == 0)
-        {
-            LOG(WARNING) << "Couldn't find a scheduled event";
-        }
     }
     else if(buf == 0)
     {
@@ -133,6 +128,11 @@ void TimeEventListener::schedule(uint64_t delay)
     {
         internal_schedule(delay);
     }
+}
+
+void TimeEventListener::unschedule()
+{
+    m_queued_events.clear();
 }
 
 void TimeEventListener::internal_schedule(uint64_t delay)

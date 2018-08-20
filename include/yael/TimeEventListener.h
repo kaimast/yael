@@ -12,7 +12,11 @@ public:
     TimeEventListener();
     ~TimeEventListener();
 
+    /// Trigger time event in [delay] ms from now
     void schedule(uint64_t delay);
+
+    /// Remove all time events for this object
+    void unschedule();
 
     virtual void on_time_event() = 0;
 
