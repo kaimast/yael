@@ -5,20 +5,20 @@ An object-oriented event loop implementation built on top of epoll.
 
 Core Features:
 * Written in modern C++ and avoids raw pointers whenever possible
-* Event loop will maintain a thread loop for you, no need to start your own worker threads
+* The event loop will maintain a thread loop for you, no need to start your own worker threads
 * Thread-safe but mostly lock-free
 * Supports both time and network events
 * Networking abstraction for TCP and TLS
 
 ## Building
-This project depends on the google testing and logging frameworks.
+This project depends on the google testing and logging frameworks, as well as libbotan for encryption (TLS).
 
-For building you further need meson-build, libbotan, ninja, and a recent (>= C++17) compiler.
+To compile the project you further need meson-build, ninja, and a recent (>= C++17) compiler.
 
 ## Usage
 To make your socket handler compatible with the event loop just use the NetworkSocketListener interface
 
-```
+```cpp
 class MyServer : protected NetworkSocketListener
 {
 public:
@@ -47,7 +47,7 @@ protected:
 ```
 
 The event loop follows the singleton pattern.
-```
+```cpp
 EventLoop::initialize();
 auto &loop = EventLoop::get_instance();
 
@@ -65,4 +65,4 @@ loop.wait();
 EventLoop::destroy();
 ```
 
-For more examples look at the tests and benchmarks.
+For more examples, please take a look at the tests and benchmarks.
