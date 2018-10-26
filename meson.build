@@ -1,5 +1,7 @@
 project('yael', 'cpp')
 
+prefix_library_path=[get_option('prefix')+'/lib', get_option('prefix')+'/lib/x86_64-linux-gnu', '/usr/local/lib', '/usr/local/lib/x86_64-linux-gnu']
+
 compile_args = ['-Wall', '-std=c++17', '-Wextra']
 
 if get_option('buildtype') == 'debug'
@@ -9,8 +11,7 @@ else
 endif
 
 incdir = include_directories('include')
-botan_dir = include_directories('/usr/include/botan-2')
-
+botan_dir = include_directories(get_option('botan_dir'))
 
 cpp = meson.get_compiler('cpp')
 
@@ -18,7 +19,10 @@ gtest_dep = dependency('gtest')
 gflags_dep = cpp.find_library('gflags')
 thread_dep = dependency('threads')
 log_dep = cpp.find_library('glog')
-botan_dep = cpp.find_library('botan-2')
+
+
+botan_dep = cpp.find_library('botan-2', dirs: prefix_library_path)
+
 
 subdir('src')
 
