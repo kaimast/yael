@@ -58,6 +58,10 @@ private:
     network::Socket *m_socket;
 };
 
+DelayedNetworkSocketListener::DelayedNetworkSocketListener()
+    : m_delay(0)
+{
+}
 
 DelayedNetworkSocketListener::DelayedNetworkSocketListener(uint32_t delay)
     : m_delay(delay)
@@ -98,14 +102,15 @@ bool DelayedNetworkSocketListener::send(const uint8_t *data, size_t length)
     return true;
 }
 
+void DelayedNetworkSocketListener::set_delay(uint32_t delay)
+{
+    m_delay = delay;
+}
+
 void DelayedNetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type)
 {
-    if(m_delay > 0)
-    {
-        auto &el = EventLoop::get_instance();
-        m_sender = el.make_event_listener<DelayedMessageSender>(socket.get());
-    }
-    
+    auto &el = EventLoop::get_instance();
+    m_sender = el.make_event_listener<DelayedMessageSender>(socket.get());
     NetworkSocketListener::set_socket(std::move(socket), type);
 }
 
