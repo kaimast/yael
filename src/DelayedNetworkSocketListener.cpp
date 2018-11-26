@@ -87,7 +87,7 @@ DelayedNetworkSocketListener::~DelayedNetworkSocketListener()
     }
 }
 
-bool DelayedNetworkSocketListener::send(const uint8_t *data, size_t length)
+void DelayedNetworkSocketListener::send(uint8_t *data, size_t length)
 {
     if(m_delay == 0)
     {
@@ -98,8 +98,6 @@ bool DelayedNetworkSocketListener::send(const uint8_t *data, size_t length)
     m_sender->lock();
     m_sender->schedule(data, length, m_delay);
     m_sender->unlock();
-
-    return true;
 }
 
 void DelayedNetworkSocketListener::set_delay(uint32_t delay)

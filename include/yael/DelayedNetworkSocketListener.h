@@ -25,7 +25,7 @@ public:
 
     ~DelayedNetworkSocketListener();
 
-    bool send(const uint8_t *data, size_t length);
+    void send(uint8_t *data, size_t length);
 
     void set_delay(uint32_t delay);
 

@@ -31,7 +31,7 @@ if [[ "$1" != "tidy-only" ]]; then
     [[ -e "$output_dir" ]] && rm -r "$output_dir"
     mkdir "$output_dir"
     cd "$output_dir" || exit 1
-    if meson .. --prefix=$HOME/local --buildtype debug -Dsgx_mode=$sgx_mode; then
+    if meson .. --prefix=$HOME/local --buildtype debug; then
         # This has to be done with else because with '!' it won't work on Mac OS X
         true
     else

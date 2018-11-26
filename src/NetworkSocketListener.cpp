@@ -4,12 +4,12 @@
 using namespace yael;
 
 NetworkSocketListener::NetworkSocketListener()
-    : m_socket(nullptr), m_fileno(-1)
+    : EventListener(EventListener::Mode::ReadOnly), m_socket(nullptr), m_fileno(-1)
 {
 }
 
 NetworkSocketListener::NetworkSocketListener(std::unique_ptr<network::Socket> &&socket, SocketType type)
-    : m_socket(nullptr), m_socket_type(SocketType::None), m_fileno(-1)
+    : EventListener(EventListener::Mode::ReadOnly), m_socket(nullptr), m_socket_type(SocketType::None), m_fileno(-1)
 {
     if(socket)
     {
@@ -69,7 +69,17 @@ bool NetworkSocketListener::is_connected() const
     return m_socket->is_connected();
 }
 
-void NetworkSocketListener::update()
+void NetworkSocketListener::on_write_ready()
+{
+    bool has_more = m_socket->do_send();
+
+    if(!has_more)
+    {
+        this->set_mode(EventListener::Mode::ReadOnly);
+    }
+}
+
+void NetworkSocketListener::on_read_ready()
 {
     switch(m_socket_type)
     {

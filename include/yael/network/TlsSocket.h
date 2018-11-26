@@ -34,8 +34,10 @@ public:
     
     bool wait_connection_established() override;
 
-    bool send(const message_out_t& message) override __attribute__((warn_unused_result));
+    bool send(message_out_t&& message) override __attribute__((warn_unused_result));
     using Socket::send;
+
+    bool do_send() override  __attribute__((warn_unused_result));
 
     bool is_connected() const override;
 

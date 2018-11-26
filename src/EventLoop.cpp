@@ -13,6 +13,23 @@ namespace yael
 /// A thread can handle at most one event
 constexpr int32_t MAX_EVENTS = 1;
 
+const uint32_t BASE_EPOLL_FLAGS = EPOLLERR | EPOLLRDHUP | EPOLLONESHOT;
+
+inline uint32_t get_flags(EventListener::Mode mode)
+{
+    uint32_t flags;
+    if(mode == EventListener::Mode::ReadOnly)
+    {
+        flags = EPOLLIN | BASE_EPOLL_FLAGS;
+    }
+    else
+    {
+        flags = EPOLLIN | EPOLLOUT | BASE_EPOLL_FLAGS;
+    }
+
+    return flags;
+}
+
 inline void increment_semaphore(int32_t fd)
 {
     constexpr uint64_t SEMAPHORE_INC = 1;
@@ -110,7 +127,7 @@ uint64_t EventLoop::get_time() const
     return std::chrono::duration_cast<std::chrono::milliseconds>(res.time_since_epoch()).count();
 }
 
-EventListenerPtr* EventLoop::update()
+std::pair<EventListenerPtr*, EventLoop::EventType> EventLoop::update()
 {
     epoll_event events[MAX_EVENTS];
     int nfds = -1;
@@ -123,9 +140,9 @@ EventListenerPtr* EventLoop::update()
 
     if(!m_okay && nfds == 0)
     {
-        // Event loop was terminated; wakeup next thrad
+        // Event loop was terminated; wakeup next thread
         increment_semaphore(m_event_semaphore);
-        return nullptr;
+        return {nullptr, EventType::None};
     }
 
     if(nfds < 0)
@@ -135,7 +152,7 @@ EventListenerPtr* EventLoop::update()
         if(errno == EINTR || errno == EBADF)
         {
             stop();
-            return nullptr;
+            return {nullptr, EventType::None};
         }
 
         LOG(FATAL) << "epoll_wait() returned an error: " << strerror(errno);
@@ -162,12 +179,35 @@ EventListenerPtr* EventLoop::update()
         {
             // Event loop was terminated; wakeup next thrad
             increment_semaphore(m_event_semaphore);
-            return nullptr;
+            return {nullptr, EventType::None};
         }
     }
     else
     {
-        return reinterpret_cast<EventListenerPtr*>(ptr);
+        EventType type;
+        auto flags = events[0].events;
+
+        bool has_read = (flags & EPOLLIN) != 0u;
+        bool has_write = (flags & EPOLLOUT) != 0u;
+
+        if(has_read && has_write)
+        {
+            type = EventType::ReadWrite;
+        }
+        else if(has_read)
+        {
+            type = EventType::Read;
+        }
+        else if(has_write)
+        {
+            type = EventType::Write;
+        }
+        else
+        {
+            LOG(FATAL) << "invalid event flag";
+        }
+
+        return {reinterpret_cast<EventListenerPtr*>(ptr), type};
     }
 }
 
@@ -202,15 +242,14 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
         throw std::runtime_error("Not a valid socket");
     }
 
-    register_socket(fileno, ptr);
+    auto flags = get_flags(listener->mode());
+    register_socket(fileno, ptr, flags);
 }
 
 void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t flags, bool modify)
 {
-    constexpr uint32_t DEFAULT_EPOLL_FLAGS = EPOLLIN | EPOLLERR | EPOLLRDHUP | EPOLLONESHOT;
-
     struct epoll_event ev;
-    ev.events = flags == 0 ? DEFAULT_EPOLL_FLAGS : flags;
+    ev.events = flags; 
     ev.data.ptr = ptr;
 
     auto op = modify ? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
@@ -220,6 +259,26 @@ void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t 
     {
         LOG(FATAL) << "epoll_ctl() failed: " << strerror(errno);
     }
+}
+
+void EventLoop::notify_listener_mode_change(EventListenerPtr listener)
+{
+    auto flags = get_flags(listener->mode());
+    EventListenerPtr *ptr = nullptr;
+
+    {
+        std::unique_lock lock(m_event_listeners_mutex);
+        auto it = m_event_listeners.find(listener->get_fileno());
+
+        if(it == m_event_listeners.end())
+        {
+            LOG(FATAL) << "invalid state: no such event listener";
+        }
+
+        ptr = it->second;
+    }
+
+    register_socket(listener->get_fileno(), ptr, flags, true);
 }
 
 void EventLoop::unregister_event_listener(EventListenerPtr listener)
@@ -254,7 +313,9 @@ void EventLoop::thread_loop()
 {
     while(this->is_okay())
     {
-        auto ptr = update();
+        auto res = update();
+        auto &[ptr, type] = res;
+
         if(ptr == nullptr)
         {
             // terminate
@@ -264,12 +325,38 @@ void EventLoop::thread_loop()
         auto listener = *ptr;
 
         listener->lock();
-        listener->update();
+
+        if(type == EventType::ReadWrite)
+        {
+            listener->on_read_ready();
+            listener->on_write_ready();
+        }
+        else if(type == EventType::Read)
+        {
+            listener->on_read_ready();
+        }
+        else if(type == EventType::Write)
+        {
+            listener->on_write_ready();
+        }
+        else
+        {
+            LOG(FATAL) << "invalid event type!";
+        }
+
+        uint32_t flags;
+        if(listener->mode() == EventListener::Mode::ReadOnly)
+        {
+            flags = EPOLLIN | BASE_EPOLL_FLAGS;
+        }
+        else
+        {
+            flags = EPOLLIN | EPOLLOUT | BASE_EPOLL_FLAGS;
+        }
 
         if(listener->is_valid())
         {
-            // oneshot ensures only one thread processes this handler
-            register_socket(listener->get_fileno(), ptr, 0, true);
+            register_socket(listener->get_fileno(), ptr, flags, true);
         }
         else
         {

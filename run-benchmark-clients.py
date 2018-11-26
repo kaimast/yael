@@ -3,19 +3,20 @@
 from math import sqrt
 from subprocess import Popen, PIPE
 from time import sleep
-from sys import argv
 
-if len(argv) < 3:
-   raise RuntimeError("Not enough arguments given")
+import argparse
 
-NUM_CLIENTS=int(argv[1])
-SERVER_NAME=argv[2]
+parser = argparse.ArgumentParser()
+parser.add_argument("num_clients", type=int)
+parser.add_argument("server_name", type=str);
+
+args = parser.parse_args()
 
 clients = []
 latencies = []
 
-for _ in range(NUM_CLIENTS):
-    c = Popen(["./yael-benchmark-client", SERVER_NAME], stdout=PIPE)
+for _ in range(args.num_clients):
+    c = Popen(["./yael-benchmark-client", args.server_name], stdout=PIPE)
     clients.append(c)
 
 for c in clients:

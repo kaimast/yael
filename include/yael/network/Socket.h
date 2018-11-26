@@ -95,8 +95,8 @@ public:
 
     struct message_out_t
     {
-        const uint8_t *data = nullptr;
-        const msg_len_t length = 0;
+        uint8_t *data;
+        const msg_len_t length;
     };
 
     struct message_in_t
@@ -139,11 +139,12 @@ public:
      */
     virtual void close(bool fast = false) = 0;
 
-    //! Send a message consisting of a list of datagrams
-    virtual bool send(const message_out_t& message) __attribute__((warn_unused_result)) = 0;
+    virtual bool send(message_out_t&& message) __attribute__((warn_unused_result)) = 0;
+
+    virtual bool do_send() __attribute__((warn_unused_result)) = 0;
 
     //! Send either raw data or string
-    bool send(const uint8_t* data, const uint32_t length) __attribute__((warn_unused_result));
+    bool send(uint8_t* data, const uint32_t length) __attribute__((warn_unused_result));
 
     /**
      * Either the listening port or the connection port
@@ -178,10 +179,10 @@ inline bool Socket::listen(const std::string& name, uint16_t port, uint32_t back
     return listen(addr, backlog);
 }
 
-inline bool Socket::send(const uint8_t *data, const uint32_t length) 
+inline bool Socket::send(uint8_t *data, const uint32_t length) 
 {
     message_out_t msg = {data, length};
-    return send(msg);
+    return send(std::move(msg));
 }
 
 }

@@ -84,6 +84,7 @@ public:
      */
     uint64_t get_time() const;
 
+    void notify_listener_mode_change(EventListenerPtr listener);
     void unregister_event_listener(EventListenerPtr listener);
 
     static bool is_initialized() 
@@ -97,11 +98,19 @@ private:
 
     void run();
     
-    EventListenerPtr* update();
+    enum EventType
+    {
+        None,
+        Read,
+        Write,
+        ReadWrite
+    };
+    
+    std::pair<EventListenerPtr*, EventType> update();
     
     void thread_loop();
 
-    void register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t flags = 0, bool modify = false);
+    void register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t flags, bool modify = false);
 
     void unregister_socket(int32_t fileno);
 

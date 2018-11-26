@@ -2,6 +2,7 @@
 
 #include <mutex>
 #include <memory>
+#include <atomic>
 #include <glog/logging.h>
 
 namespace yael
@@ -10,12 +11,19 @@ namespace yael
 class EventListener : public std::enable_shared_from_this<EventListener>
 {
 public:
+    enum class Mode
+    {
+        ReadOnly,
+        ReadWrite
+    };
+
     virtual ~EventListener() = default;
 
     /**
      * Handle events
      */
-    virtual void update() = 0;
+    virtual void on_read_ready() = 0;
+    virtual void on_write_ready() = 0;
 
     /**
      * @brief will try to lock the associated mutex
@@ -44,8 +52,18 @@ public:
      */
     virtual int32_t get_fileno() const = 0;
 
+    Mode mode() const { return m_mode; }
+
+    void set_mode(Mode mode);
+
+protected:
+    EventListener(Mode mode)
+        : m_mode(mode)
+    {}
+
 private:
     std::mutex m_mutex;
+    std::atomic<Mode> m_mode;
 };
 
 inline bool EventListener::try_lock()

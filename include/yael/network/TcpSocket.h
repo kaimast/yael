@@ -44,8 +44,10 @@ public:
         return is_connected();
     }
 
-    bool send(const message_out_t& message) override __attribute__((warn_unused_result));
+    bool send(message_out_t&& message) override __attribute__((warn_unused_result));
     using Socket::send;
+
+    bool do_send() override __attribute__((warn_unused_result));
 
     uint16_t port() const override;
 
@@ -62,6 +64,36 @@ public:
     bool is_valid() const override { return m_fd > 0; }
 
 protected:
+    struct message_out_internal_t
+    {
+        message_out_internal_t(message_out_t &&msg)
+            : data(msg.data), length(msg.length), sent_pos(0)
+        {
+            msg.data = nullptr;
+        }
+
+        message_out_internal_t(message_out_internal_t &&other)
+            : data(other.data), length(other.length), sent_pos(other.sent_pos)
+        {
+            other.data = nullptr;
+            other.length = other.sent_pos = 0;
+        }
+
+        void operator=(message_out_internal_t &&other)
+        {
+            data = other.data;
+            length = other.length;
+            sent_pos = other.sent_pos;
+
+            other.data = nullptr;
+            other.length = other.sent_pos = 0;
+        }
+
+        uint8_t *data;
+        msg_len_t length;
+        msg_len_t sent_pos; 
+    };
+        
     //! Construct as a child socket
     //! Is only called by Socket::accept
     TcpSocket(int fd);
@@ -113,6 +145,9 @@ private:
         Closed,
         Unknown
     };
+
+    std::mutex m_send_mutex;
+    std::vector<message_out_internal_t> m_send_queue;
 
     State m_state = State::Unknown;
 };

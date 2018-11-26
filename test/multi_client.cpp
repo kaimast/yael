@@ -92,14 +92,11 @@ Peer::Peer(std::unique_ptr<yael::network::Socket> &&s, uint32_t delay)
 
 void Peer::send(const std::string &msg)
 {
-    const uint8_t *data = reinterpret_cast<const uint8_t*>(msg.c_str());
     const uint32_t length = msg.size();
-    bool result = DelayedNetworkSocketListener::send(data, length);
+    uint8_t *data = new uint8_t[length];
+    memcpy(data, msg.c_str(), length);
 
-    if (!result)
-    {
-        throw std::runtime_error("Failed to send message");
-    }
+    DelayedNetworkSocketListener::send(data, length);
 }
 
 void Peer::on_network_message(yael::network::Socket::message_in_t &msg)

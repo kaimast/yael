@@ -443,64 +443,99 @@ std::optional<TcpSocket::message_in_t> TcpSocket::receive()
     }
 }
 
-bool TcpSocket::send(const message_out_t& message)
+bool TcpSocket::send(message_out_t&& message)
 {
-    if(!is_valid())
-    {
-        throw socket_error("Cannot send data on invalid port");
-    }
-
     if(message.length <= 0)
     {
         throw socket_error("Message size has to be > 0");
     }
 
-    uint32_t sent = 0;
-    const uint32_t length = message.length + MessageSlicer::HEADER_SIZE;
+    auto msg_out = message_out_internal_t(std::move(message));
 
-    while(sent < length)
     {
-        int32_t s = 0;
+        std::unique_lock lock(m_send_mutex);
 
-        if(sent < MessageSlicer::HEADER_SIZE)
+        if(m_send_queue.size() > 100)
         {
-            s = ::write(m_fd, reinterpret_cast<const char*>(&length)+sent, MessageSlicer::HEADER_SIZE-sent);
-        }
-        else
-        {
-            s = ::write(m_fd, message.data+(sent - MessageSlicer::HEADER_SIZE), length-sent);
+            throw socket_error("Send queue is full");
         }
 
-        if(s > 0)
-        {
-            sent += s;
-        }
-        else if(s == 0)
-        {
-            LOG(WARNING) << "Connection lost during send: Message may only be sent partially";
-            close(true);
-            return false;
-        }
-        else if(s < 0)
-        {
-            auto e = errno;
-
-            switch(e)
-            {
-            case EAGAIN:
-            case ECONNRESET:
-                break;
-            case EPIPE:
-                close(true);
-                return false;
-            default:
-                close(true);
-                throw socket_error(strerror(errno));
-            }
-        }
+        m_send_queue.emplace_back(std::move(msg_out));
     }
 
-    return true;
+    return do_send();
+}
+
+bool TcpSocket::do_send()
+{
+    std::unique_lock lock(m_send_mutex);
+    
+    while(true)
+    {
+        auto it = m_send_queue.begin();
+        
+        if(it == m_send_queue.end())
+        {
+            // we sent everything!
+            return false;
+        }
+
+        if(!is_valid())
+        {
+            throw socket_error("Cannot send data on invalid port");
+        }
+
+        auto &message = *it;
+        
+        const uint32_t length = message.length + MessageSlicer::HEADER_SIZE;
+
+        while(message.sent_pos < length)
+        {
+            int32_t s = 0;
+
+            if(message.sent_pos < MessageSlicer::HEADER_SIZE)
+            {
+                s = ::write(m_fd, reinterpret_cast<const char*>(&length)+ message.sent_pos, MessageSlicer::HEADER_SIZE - message.sent_pos);
+            }
+            else
+            {
+                s = ::write(m_fd, message.data + (message.sent_pos - MessageSlicer::HEADER_SIZE), length - message.sent_pos);
+            }
+
+            if(s > 0)
+            {
+                message.sent_pos += s;
+            }
+            else if(s == 0)
+            {
+                LOG(WARNING) << "Connection lost during send: Message may only be sent partially";
+                close(true);
+                return false;
+            }
+            else if(s < 0)
+            {
+                auto e = errno;
+
+                switch(e)
+                {
+                case EAGAIN:
+                case ECONNRESET:
+                    // we did not finish sending
+                    return true;
+                    break;
+                case EPIPE:
+                    close(true);
+                    return false;
+                default:
+                    close(true);
+                    throw socket_error(strerror(errno));
+                }
+            }
+        }
+
+        delete[] message.data;
+        m_send_queue.erase(it);
+    }
 }
 
 }

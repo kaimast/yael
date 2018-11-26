@@ -43,7 +43,8 @@ private:
         return m_fileno;
     }
 
-    void update() override final;
+    void on_read_ready() override final;
+    void on_write_ready() override final {}
 
     int32_t m_fileno;
     int32_t m_fd;

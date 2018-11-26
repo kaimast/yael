@@ -143,10 +143,9 @@ protected:
 TEST_P(SocketTest, send_one_way)
 {
     const uint32_t len = 4313;
-    uint8_t data[len];
+    auto data = new uint8_t[len];
 
-    bool sent = m_connection2->send(data, len);
-    ASSERT_TRUE(sent);
+    m_connection2->send(data, len);
 
     std::optional<Socket::message_in_t> msg;
 
@@ -164,10 +163,12 @@ TEST_P(SocketTest, send_one_way)
 TEST_P(SocketTest, send_large_chunk)
 {
     const uint32_t len = 50 * 1000 * 1000;
-    auto data = new uint8_t[len];
+    uint8_t *data = new uint8_t[len];
 
-    bool sent = m_connection2->send(data, len);
-    ASSERT_TRUE(sent);
+    auto to_send = new uint8_t[len];
+    memcpy(to_send, data, len);
+
+    m_connection2->send(to_send, len);
 
     std::optional<Socket::message_in_t> msg;
 
@@ -188,8 +189,9 @@ TEST_P(SocketTest, send_other_way)
     const uint32_t len = 4313;
     uint8_t data[len];
 
-    bool sent = m_connection1->send(data, len);
-    ASSERT_TRUE(sent);
+    uint8_t *to_send = new uint8_t[len];
+    memcpy(to_send, data, len);
+    m_connection1->send(to_send, len);
 
     std::optional<Socket::message_in_t> msg;
 
@@ -206,14 +208,13 @@ TEST_P(SocketTest, send_other_way)
 
 TEST_P(SocketTest, first_in_first_out)
 {
-    const uint8_t type1 = 12;
-    const uint8_t type2 = 42;
-    const uint32_t len = 1;
+    auto type1 = new uint8_t(12);
+    auto type2 = new uint8_t(42);
+    
+    const uint32_t len = sizeof(uint8_t);
 
-    bool sent = m_connection2->send(&type1, len);
-    ASSERT_TRUE(sent);
-    sent = m_connection2->send(&type2, len);
-    ASSERT_TRUE(sent);
+    m_connection2->send(type1, len);
+    m_connection2->send(type2, len);
 
     std::optional<Socket::message_in_t> msg1;
 
@@ -229,9 +230,9 @@ TEST_P(SocketTest, first_in_first_out)
         msg2 = m_connection1->receive();
     }
 
-    ASSERT_EQ(type1, *msg1->data);
+    ASSERT_EQ(12, *msg1->data);
     ASSERT_EQ(len, msg1->length);
-    ASSERT_EQ(type2, *msg2->data);
+    ASSERT_EQ(42, *msg2->data);
     ASSERT_EQ(len, msg2->length);
 
     delete[] msg1->data;

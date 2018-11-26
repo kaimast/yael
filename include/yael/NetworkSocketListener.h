@@ -70,9 +70,18 @@ public:
         return is_valid() && m_socket->has_messages();
     }
 
-    bool send(const uint8_t *data, size_t length) 
+    void send(uint8_t *data, size_t length) 
     {
-        return m_socket->send(data, length);
+        bool has_more = m_socket->send(data, length);
+
+        if(has_more)
+        {
+            set_mode(Mode::ReadWrite);
+        }
+        else
+        {
+            set_mode(Mode::ReadOnly);
+        }
     }
 
     void close_socket();
@@ -95,7 +104,8 @@ protected:
     std::unique_ptr<network::Socket> release_socket();
 
 private:
-    void update() override;
+    void on_read_ready() override final;
+    void on_write_ready() override final;
 
     std::unique_ptr<network::Socket> m_socket;
     SocketType m_socket_type;

@@ -7,6 +7,7 @@ namespace yael
 {
 
 TimeEventListener::TimeEventListener()
+    : EventListener(EventListener::Mode::ReadOnly)
 {
     constexpr int32_t flags = 0;
     m_fileno = m_fd = timerfd_create(CLOCK_REALTIME, flags);
@@ -32,7 +33,7 @@ void TimeEventListener::close()
     }
 }
 
-void TimeEventListener::update()
+void TimeEventListener::on_read_ready()
 {
     uint64_t buf;
     ::read(m_fd, &buf, sizeof(buf));
