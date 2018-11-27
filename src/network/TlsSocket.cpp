@@ -90,7 +90,7 @@ void TlsSocket::close(bool fast)
     TcpSocket::close(fast);
 }
 
-bool TlsSocket::send(message_out_t&& message)
+bool TlsSocket::send(const uint8_t *data, uint32_t length)
 {
     if(m_state != State::Connected)
     {
@@ -98,7 +98,7 @@ bool TlsSocket::send(message_out_t&& message)
     }
 
     try {
-        m_tls_context->send(message);
+        m_tls_context->send(data, length);
     } catch(std::exception &e) {
         LOG(WARNING) << "Failed to send data: " << e.what();
         close();

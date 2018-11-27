@@ -443,14 +443,14 @@ std::optional<TcpSocket::message_in_t> TcpSocket::receive()
     }
 }
 
-bool TcpSocket::send(message_out_t&& message)
+bool TcpSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len)
 {
-    if(message.length <= 0)
+    if(len <= 0)
     {
         throw socket_error("Message size has to be > 0");
     }
 
-    auto msg_out = message_out_internal_t(std::move(message));
+    auto msg_out = message_out_internal_t(std::move(data), len);
 
     {
         std::unique_lock lock(m_send_mutex);
@@ -488,6 +488,7 @@ bool TcpSocket::do_send()
         auto &message = *it;
         
         const uint32_t length = message.length + MessageSlicer::HEADER_SIZE;
+        const uint8_t *rdata = message.data.get();
 
         while(message.sent_pos < length)
         {
@@ -499,7 +500,7 @@ bool TcpSocket::do_send()
             }
             else
             {
-                s = ::write(m_fd, message.data + (message.sent_pos - MessageSlicer::HEADER_SIZE), length - message.sent_pos);
+                s = ::write(m_fd, rdata+ (message.sent_pos - MessageSlicer::HEADER_SIZE), length - message.sent_pos);
             }
 
             if(s > 0)
@@ -533,7 +534,6 @@ bool TcpSocket::do_send()
             }
         }
 
-        delete[] message.data;
         m_send_queue.erase(it);
     }
 }

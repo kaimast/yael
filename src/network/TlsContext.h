@@ -25,7 +25,7 @@ public:
     TlsContext(TlsSocket &socket);
     virtual ~TlsContext() = default;
 
-    void send(const Socket::message_out_t &message);
+    void send(const uint8_t *data, uint32_t length);
 
     void wait_connected();
 

@@ -34,8 +34,8 @@ public:
     
     bool wait_connection_established() override;
 
-    bool send(message_out_t&& message) override __attribute__((warn_unused_result));
-    using Socket::send;
+    bool send(const uint8_t *data, uint32_t len) override __attribute__((warn_unused_result));
+    bool send(std::unique_ptr<uint8_t[]> &&data, uint32_t len) override __attribute__((warn_unused_result));
 
     bool do_send() override  __attribute__((warn_unused_result));
 
@@ -72,5 +72,9 @@ private:
     State m_state;
 };
 
+inline bool TlsSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len)
+{
+    return send(data.get(), len);
+}
 }
 }

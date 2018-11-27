@@ -2,7 +2,8 @@
 
 #include <list>
 #include <vector>
-#include <stdint.h>
+#include <cstdint>
+#include <cstring>
 #include <mutex>
 #include <tuple>
 #include <memory>
@@ -44,8 +45,8 @@ public:
         return is_connected();
     }
 
-    bool send(message_out_t&& message) override __attribute__((warn_unused_result));
-    using Socket::send;
+    bool send(const uint8_t *data, uint32_t len) override __attribute__((warn_unused_result));
+    bool send(std::unique_ptr<uint8_t[]> &&data, uint32_t len) override __attribute__((warn_unused_result));
 
     bool do_send() override __attribute__((warn_unused_result));
 
@@ -66,30 +67,27 @@ public:
 protected:
     struct message_out_internal_t
     {
-        message_out_internal_t(message_out_t &&msg)
-            : data(msg.data), length(msg.length), sent_pos(0)
+        message_out_internal_t(std::unique_ptr<uint8_t[]> &&data, uint32_t length)
+            : data(std::move(data)), length(length), sent_pos(0)
         {
-            msg.data = nullptr;
         }
 
         message_out_internal_t(message_out_internal_t &&other)
-            : data(other.data), length(other.length), sent_pos(other.sent_pos)
+            : data(std::move(other.data)), length(other.length), sent_pos(other.sent_pos)
         {
-            other.data = nullptr;
             other.length = other.sent_pos = 0;
         }
 
         void operator=(message_out_internal_t &&other)
         {
-            data = other.data;
+            data = std::move(other.data);
             length = other.length;
             sent_pos = other.sent_pos;
 
-            other.data = nullptr;
             other.length = other.sent_pos = 0;
         }
 
-        uint8_t *data;
+        std::unique_ptr<uint8_t[]> data;
         msg_len_t length;
         msg_len_t sent_pos; 
     };
@@ -165,6 +163,14 @@ inline bool TcpSocket::is_connected() const
 inline bool TcpSocket::is_listening() const
 {
     return m_state == State::Listening;
+}
+
+inline bool TcpSocket::send(const uint8_t *data, uint32_t len)
+{
+    auto cpy = std::make_unique<uint8_t[]>(len); 
+    memcpy(cpy.get(), data, len);
+
+    return send(std::move(cpy), len);
 }
 
 }

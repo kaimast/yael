@@ -70,7 +70,21 @@ public:
         return is_valid() && m_socket->has_messages();
     }
 
-    void send(uint8_t *data, size_t length) 
+    void send(std::unique_ptr<uint8_t[]> &&data, size_t length) 
+    {
+        bool has_more = m_socket->send(std::move(data), length);
+
+        if(has_more)
+        {
+            set_mode(Mode::ReadWrite);
+        }
+        else
+        {
+            set_mode(Mode::ReadOnly);
+        }
+    }
+
+    void send(const uint8_t *data, size_t length) 
     {
         bool has_more = m_socket->send(data, length);
 

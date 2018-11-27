@@ -21,13 +21,12 @@ public:
 
         auto &socket = *m_socket;
         
-        auto it = m_pending_messages.front();
-        auto &[data, length] = it;
+        auto it = m_pending_messages.begin();
+        auto &[data, length] = *it;
         bool res;
 
         try {
-            res = socket.send(data, length);
-            delete []data;
+            res = socket.send(std::move(data), length);
         } catch(network::socket_error &e) {
             res = false;
         }
@@ -35,7 +34,7 @@ public:
         // FIXME not sure how to pass the result back to the app
         (void)res;
 
-        m_pending_messages.pop_front();
+        m_pending_messages.erase(it);
     }
 
     void close()
@@ -44,17 +43,22 @@ public:
         TimeEventListener::close();
     }
 
+    void schedule(std::unique_ptr<uint8_t[]> &&data, size_t length, uint32_t delay)
+    {
+        m_pending_messages.emplace_back(std::pair{std::move(data), length});
+        TimeEventListener::schedule(delay);
+    }
+
     void schedule(const uint8_t *data, size_t length, uint32_t delay)
     {
-        auto copy = new uint8_t[length];
-        memcpy(copy, data, length);
-        m_pending_messages.emplace_back(std::pair{copy, length});
-        
+        auto copy = std::make_unique<uint8_t[]>(length);
+        memcpy(copy.get(), data, length);
+        m_pending_messages.emplace_back(std::pair{std::move(copy), length});
         TimeEventListener::schedule(delay);
     }
 
 private:
-    std::list<std::pair<uint8_t*, size_t>> m_pending_messages;
+    std::list<std::pair<std::unique_ptr<uint8_t[]>, size_t>> m_pending_messages;
     network::Socket *m_socket;
 };
 
@@ -87,7 +91,20 @@ DelayedNetworkSocketListener::~DelayedNetworkSocketListener()
     }
 }
 
-void DelayedNetworkSocketListener::send(uint8_t *data, size_t length)
+void DelayedNetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t length)
+{
+    if(m_delay == 0)
+    {
+        // default behaviour if no artificial delay specified
+        return NetworkSocketListener::send(std::move(data), length);
+    }
+
+    m_sender->lock();
+    m_sender->schedule(std::move(data), length, m_delay);
+    m_sender->unlock();
+}
+
+void DelayedNetworkSocketListener::send(const uint8_t *data, size_t length)
 {
     if(m_delay == 0)
     {

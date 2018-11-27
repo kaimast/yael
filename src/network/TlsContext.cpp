@@ -18,13 +18,13 @@ TlsContext::TlsContext(TlsSocket &socket)
 {
 }
 
-void TlsContext::send(const Socket::message_out_t &message)
+void TlsContext::send(const uint8_t *data, uint32_t length)
 {
     std::unique_lock lock(m_mutex);
 
-    uint32_t header = message.length + sizeof(uint32_t);
+    uint32_t header = length + sizeof(uint32_t);
     m_channel->send(reinterpret_cast<const uint8_t*>(&header), sizeof(header));
-    m_channel->send(message.data, message.length);
+    m_channel->send(data, length);
 }
 
 void TlsContext::wait_connected()

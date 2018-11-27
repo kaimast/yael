@@ -93,12 +93,6 @@ class Socket
 public:
     static constexpr uint16_t ANY_PORT = 0;
 
-    struct message_out_t
-    {
-        uint8_t *data;
-        const msg_len_t length;
-    };
-
     struct message_in_t
     {
         uint8_t *data;
@@ -139,12 +133,13 @@ public:
      */
     virtual void close(bool fast = false) = 0;
 
-    virtual bool send(message_out_t&& message) __attribute__((warn_unused_result)) = 0;
+    virtual bool send(const uint8_t *data, uint32_t len) __attribute__((warn_unused_result)) = 0;
 
     virtual bool do_send() __attribute__((warn_unused_result)) = 0;
 
     //! Send either raw data or string
-    bool send(uint8_t* data, const uint32_t length) __attribute__((warn_unused_result));
+    //! This version will take overship over the area pointed to by data
+    virtual bool send(std::unique_ptr<uint8_t[]> &&data, const uint32_t length) __attribute__((warn_unused_result)) = 0;
 
     /**
      * Either the listening port or the connection port
@@ -177,12 +172,6 @@ inline bool Socket::listen(const std::string& name, uint16_t port, uint32_t back
 {
     Address addr = resolve_URL(name, port);
     return listen(addr, backlog);
-}
-
-inline bool Socket::send(uint8_t *data, const uint32_t length) 
-{
-    message_out_t msg = {data, length};
-    return send(std::move(msg));
 }
 
 }
