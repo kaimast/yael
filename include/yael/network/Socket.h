@@ -107,7 +107,7 @@ public:
     virtual ~Socket() = default;
 
     //! Accept new connections
-    virtual std::vector<Socket*> accept() = 0;
+    virtual std::vector<std::unique_ptr<Socket>> accept() = 0;
 
     virtual bool has_messages() const = 0;
 
@@ -165,6 +165,8 @@ public:
     virtual const Address& get_remote_address() const = 0;
 
     virtual int32_t get_fileno() const = 0;
+
+    virtual size_t max_send_queue_size() const = 0;
 
     virtual std::optional<message_in_t> receive() = 0;
 };

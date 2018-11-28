@@ -24,12 +24,14 @@ class MessageSlicer;
 class TcpSocket : public Socket
 {
 public:
+    static constexpr size_t DEFAULT_MAX_SEND_QUEUE_SIZE = 1024 * 1024;
+
     TcpSocket(const Socket& other) = delete;
 
-    TcpSocket();
+    TcpSocket(size_t max_send_queue_size= DEFAULT_MAX_SEND_QUEUE_SIZE);
     virtual ~TcpSocket();
 
-    std::vector<Socket*> accept() override;
+    std::vector<std::unique_ptr<Socket>> accept() override;
 
     bool has_messages() const override;
     bool connect(const Address& address, const std::string& name = "") override __attribute__((warn_unused_result));
@@ -64,6 +66,8 @@ public:
 
     bool is_valid() const override { return m_fd > 0; }
 
+    size_t max_send_queue_size() const override { return m_max_send_queue_size; }
+
 protected:
     struct message_out_internal_t
     {
@@ -94,7 +98,7 @@ protected:
         
     //! Construct as a child socket
     //! Is only called by Socket::accept
-    TcpSocket(int fd);
+    TcpSocket(int fd, size_t max_send_queue_size);
 
     //! Pull new messages from the socket onto our stack
     virtual void pull_messages();
@@ -148,6 +152,10 @@ private:
     std::vector<message_out_internal_t> m_send_queue;
 
     State m_state = State::Unknown;
+
+    // Queue at most 1Mb
+    const size_t m_max_send_queue_size = 1024 * 1024;
+    size_t m_send_queue_size = 0;
 };
 
 inline int32_t TcpSocket::get_fileno() const

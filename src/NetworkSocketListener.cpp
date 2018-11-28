@@ -85,9 +85,9 @@ void NetworkSocketListener::on_read_ready()
     {
     case SocketType::Acceptor:
     {
-        for(auto s: m_socket->accept())
+        for(auto &s: m_socket->accept())
         {
-            this->on_new_connection(std::unique_ptr<network::Socket>{s});
+            this->on_new_connection(std::move(s));
         }
 
         break;

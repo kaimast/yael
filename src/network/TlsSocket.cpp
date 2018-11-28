@@ -10,14 +10,14 @@ namespace yael
 namespace network
 {
 
-TlsSocket::TlsSocket(const std::string &key_path, const std::string &cert_path)
-    : m_key_path(key_path), m_cert_path(cert_path)
+TlsSocket::TlsSocket(const std::string &key_path, const std::string &cert_path, size_t max_send_queue_size)
+    : TcpSocket(max_send_queue_size), m_key_path(key_path), m_cert_path(cert_path)
 {
     m_state = State::Unknown;
 }
 
-TlsSocket::TlsSocket(int32_t fd, const std::string &key_path, const std::string &cert_path)
-    : TcpSocket(fd), m_key_path(key_path), m_cert_path(cert_path)
+TlsSocket::TlsSocket(int32_t fd, const std::string &key_path, const std::string &cert_path, size_t max_send_queue_size)
+    : TcpSocket(fd, max_send_queue_size), m_key_path(key_path), m_cert_path(cert_path)
 {
     m_state = State::Setup;
     m_tls_context = std::make_unique<TlsServer>(*this, key_path, cert_path);
@@ -28,14 +28,14 @@ TlsSocket::~TlsSocket()
     TlsSocket::close(true);
 }
 
-std::vector<Socket*> TlsSocket::accept()
+std::vector<std::unique_ptr<Socket>> TlsSocket::accept()
 {
     if(!is_listening())
     {
         throw socket_error("Cannot accept on connected TcpTcpSocket");
     }
 
-    std::vector<Socket*> res;
+    std::vector<std::unique_ptr<Socket>> res;
 
     while(true)
     {
@@ -43,7 +43,8 @@ std::vector<Socket*> TlsSocket::accept()
         
         if(fd >= 0)
         {
-            res.push_back(new TlsSocket(fd, m_key_path, m_cert_path));
+            auto ptr = new TlsSocket(fd, m_key_path, m_cert_path,max_send_queue_size());
+            res.emplace_back(std::unique_ptr<Socket>(ptr));
         }
         else
         {

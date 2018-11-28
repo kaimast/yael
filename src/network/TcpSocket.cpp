@@ -29,14 +29,14 @@ namespace network
 
 constexpr int TRUE_FLAG = 1;
 
-TcpSocket::TcpSocket()
-    : m_port(0), m_is_ipv6(false), m_fd(-1)
+TcpSocket::TcpSocket(size_t max_send_queue_size)
+    : m_port(0), m_is_ipv6(false), m_fd(-1), m_max_send_queue_size(max_send_queue_size)
 {
     m_slicer = std::make_unique<MessageSlicer>();
 }
 
-TcpSocket::TcpSocket(int fd)
-    : m_port(0), m_is_ipv6(false), m_fd(fd)
+TcpSocket::TcpSocket(int fd, size_t max_send_queue_size)
+    : m_port(0), m_is_ipv6(false), m_fd(fd), m_max_send_queue_size(max_send_queue_size)
 {
     m_slicer = std::make_unique<MessageSlicer>();
 
@@ -260,14 +260,14 @@ int32_t TcpSocket::internal_accept()
     return s;
 }
 
-std::vector<Socket*> TcpSocket::accept()
+std::vector<std::unique_ptr<Socket>> TcpSocket::accept()
 {
     if(!is_listening())
     {
         throw socket_error("Cannot accept on connected TcpTcpSocket");
     }
 
-    std::vector<Socket*> res;
+    std::vector<std::unique_ptr<Socket>> res;
 
     while(true)
     {
@@ -275,7 +275,8 @@ std::vector<Socket*> TcpSocket::accept()
         
         if(fd >= 0)
         {
-            res.push_back(new TcpSocket(fd));
+            auto ptr = new TcpSocket(fd, m_max_send_queue_size);
+            res.emplace_back(std::unique_ptr<Socket>(ptr));
         }
         else
         {
@@ -456,11 +457,12 @@ bool TcpSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len)
     {
         std::unique_lock lock(m_send_mutex);
 
-        if(m_send_queue.size() > 100)
+        if(m_send_queue_size >= m_max_send_queue_size)
         {
             throw socket_error("Send queue is full");
         }
 
+        m_send_queue_size += len;
         m_send_queue.emplace_back(std::move(msg_out));
     }
 
@@ -535,6 +537,7 @@ bool TcpSocket::do_send()
             }
         }
 
+        m_send_queue_size -= message.length;
         m_send_queue.erase(it);
     }
 }
