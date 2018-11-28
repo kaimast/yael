@@ -56,7 +56,7 @@ public:
 
     bool is_listening() const override;
 
-    const Address& get_client_address() const override;
+    const Address& get_remote_address() const override;
 
     int32_t get_fileno() const override;
 
@@ -110,9 +110,9 @@ protected:
     //! Only used by pull_messages
     bool receive_data(buffer_t &buffer);
 
-    //! (Re)calculate m_client_address
+    //! (Re)calculate m_remote_address
     //! Called by constructor and connect()
-    void calculate_client_address();
+    void calculate_remote_address();
 
     void update_port_number();
 
@@ -130,7 +130,7 @@ protected:
     //! The address of the connected client (if any)
     //! Will still be valid after close() was called
     //! Also used to register with the parent socket
-    Address m_client_address;
+    Address m_remote_address;
 
     std::unique_ptr<MessageSlicer> m_slicer;
 

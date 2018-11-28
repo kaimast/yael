@@ -45,7 +45,7 @@ TcpSocket::TcpSocket(int fd)
     fcntl(m_fd, F_SETFL, flags);
 
     update_port_number();
-    calculate_client_address();
+    calculate_remote_address();
 
     m_state = State::Connected;
 }
@@ -225,7 +225,7 @@ bool TcpSocket::connect(const Address& address, const std::string& name)
     flags = flags | O_NONBLOCK;
     fcntl(m_fd, F_SETFL, flags);
 
-    calculate_client_address();
+    calculate_remote_address();
 
     m_state = State::Connected;
     return true;
@@ -283,12 +283,12 @@ std::vector<Socket*> TcpSocket::accept()
     }
 }
 
-const Address& TcpSocket::get_client_address() const
+const Address& TcpSocket::get_remote_address() const
 {
-    return m_client_address;
+    return m_remote_address;
 }
 
-void TcpSocket::calculate_client_address()
+void TcpSocket::calculate_remote_address()
 {
     char ipstring[16];
     sockaddr_in sin;
@@ -296,15 +296,15 @@ void TcpSocket::calculate_client_address()
 
     if( getpeername(m_fd, reinterpret_cast<sockaddr*>(&sin), &len) == -1)
     {
-        m_client_address.reset();
+        m_remote_address.reset();
     }
 
     inet_ntop( AF_INET, dynamic_cast<in_addr*>(&sin.sin_addr), &ipstring[0], 16);
 
     uint16_t port = sin.sin_port;
 
-    m_client_address.IP = &ipstring[0];
-    m_client_address.PortNumber = port;
+    m_remote_address.IP = &ipstring[0];
+    m_remote_address.PortNumber = port;
 }
 
 void TcpSocket::close(bool fast)

@@ -161,7 +161,8 @@ public:
     /// Note; this does not imply a connection is established yet
     virtual bool is_valid() const = 0;
 
-    virtual const Address& get_client_address() const = 0;
+    /// Get the address of the party we are connected to
+    virtual const Address& get_remote_address() const = 0;
 
     virtual int32_t get_fileno() const = 0;
 
