@@ -302,7 +302,7 @@ void TcpSocket::calculate_remote_address()
 
     inet_ntop( AF_INET, dynamic_cast<in_addr*>(&sin.sin_addr), &ipstring[0], 16);
 
-    uint16_t port = sin.sin_port;
+    uint16_t port = htons(sin.sin_port);
 
     m_remote_address.IP = &ipstring[0];
     m_remote_address.PortNumber = port;

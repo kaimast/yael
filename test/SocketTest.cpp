@@ -104,12 +104,14 @@ private:
 class SocketTest : public testing::TestWithParam<ProtocolType>
 {
 protected:
+    static constexpr uint16_t PORT = 62123;
+
     void SetUp() override
     {
         EventLoop::initialize();
         auto &el = EventLoop::get_instance();
 
-        const Address addr = resolve_URL("localhost", 62123);
+        const Address addr = resolve_URL("localhost", PORT);
 
         m_connection1 = el.allocate_event_listener<Connection>();
         m_server = el.make_event_listener<Server>(addr, m_connection1, GetParam());
@@ -139,6 +141,12 @@ protected:
     std::shared_ptr<Connection> m_connection1 = nullptr;
     std::shared_ptr<Connection> m_connection2 = nullptr;
 };
+
+TEST_P(SocketTest, remote_address)
+{
+    EXPECT_EQ(PORT, m_connection1->socket().port());
+    EXPECT_EQ(PORT, m_connection2->socket().get_remote_address().PortNumber);
+}
 
 TEST_P(SocketTest, send_one_way)
 {
