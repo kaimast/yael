@@ -226,6 +226,7 @@ bool TcpSocket::connect(const Address& address, const std::string& name)
     fcntl(m_fd, F_SETFL, flags);
 
     calculate_remote_address();
+    update_port_number();
 
     m_state = State::Connected;
     return true;
