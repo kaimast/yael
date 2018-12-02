@@ -38,3 +38,19 @@ subdir('test')
 executable('yael-test', test_cpp_files, link_with: yael, dependencies: [log_dep, thread_dep, gtest_dep, gflags_dep], include_directories: [incdir], cpp_args: compile_args)
 
 install_subdir('include/yael', install_dir : 'include')
+
+# NOTE: gtest on ubuntu still uses deprecated functions so we can't lint the test files yet
+clangtidy = find_program('clang-tidy', required: false)
+
+if clangtidy.found()
+    run_target(
+        'tidy',
+        command: [
+            'scripts/clang-tidy.sh',
+            clangtidy.path(),
+            meson.source_root(),
+            meson.build_root()
+        ] + yael_cpp_files,
+    depends: [yael])
+endif
+
