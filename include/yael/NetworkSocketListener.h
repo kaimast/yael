@@ -98,7 +98,7 @@ public:
         }
     }
 
-    void close_socket();
+    virtual void close_socket() override;
 
     const network::Socket& socket() const
     {

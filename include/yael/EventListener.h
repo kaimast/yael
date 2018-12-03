@@ -56,6 +56,8 @@ public:
 
     void set_mode(Mode mode);
 
+    virtual void close_socket() = 0;
+
 protected:
     EventListener(Mode mode)
         : m_mode(mode)

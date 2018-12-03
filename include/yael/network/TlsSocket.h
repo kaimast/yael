@@ -30,7 +30,8 @@ public:
     bool listen(const Address& address, uint32_t backlog) override __attribute__((warn_unused_result));
     using Socket::listen;
 
-    void close(bool fast = false) override;
+    /// Same as TcpSocket::close
+    bool close(bool fast = false) override;
     
     bool wait_connection_established() override;
 

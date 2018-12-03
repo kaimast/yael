@@ -37,10 +37,10 @@ public:
         m_pending_messages.erase(it);
     }
 
-    void close()
+    void close_socket() override
     {
         m_socket = nullptr;
-        TimeEventListener::close();
+        TimeEventListener::close_socket();
     }
 
     void schedule(std::unique_ptr<uint8_t[]> &&data, size_t length, uint32_t delay)
@@ -83,12 +83,19 @@ DelayedNetworkSocketListener::DelayedNetworkSocketListener(uint32_t delay, std::
 
 DelayedNetworkSocketListener::~DelayedNetworkSocketListener()
 {
+    close_socket();
+}
+
+void DelayedNetworkSocketListener::close_socket()
+{
     if(EventLoop::is_initialized() && m_sender != nullptr)
     {
         m_sender->lock();
-        m_sender->close();
+        m_sender->close_socket();
         m_sender->unlock();
     }
+
+    NetworkSocketListener::close_socket();
 }
 
 void DelayedNetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t length)

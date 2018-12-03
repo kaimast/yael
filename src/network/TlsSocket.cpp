@@ -78,17 +78,17 @@ bool TlsSocket::listen(const Address& address, uint32_t backlog)
     return TcpSocket::listen(address, backlog);
 }
 
-void TlsSocket::close(bool fast)
+bool TlsSocket::close(bool fast)
 {
-    if(m_tls_context && m_state == State::Connected
-        && !fast)
+    if(m_tls_context && m_state == State::Connected && !fast)
     {
         m_state = State::Shutdown;
         m_tls_context->close();
+        return false;
     }
 
     m_state = State::Closed;
-    TcpSocket::close(fast);
+    return TcpSocket::close(fast);
 }
 
 bool TlsSocket::send(const uint8_t *data, uint32_t length)

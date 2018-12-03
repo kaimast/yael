@@ -40,7 +40,9 @@ public:
 
     using Socket::listen;
 
-    virtual void close(bool fast = false) override;
+    /// Returns true if the socket closed right away
+    /// False if there is still data to be written
+    virtual bool close(bool fast = false) override;
 
     inline bool wait_connection_established() override
     {

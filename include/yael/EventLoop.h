@@ -22,6 +22,8 @@ namespace yael
 class EventLoop
 {
 public:
+    EventLoop(const EventLoop &other) = delete;
+
     /**
      * @brief wait for event loop to terminate
      *

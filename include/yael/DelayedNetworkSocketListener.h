@@ -30,6 +30,8 @@ public:
 
     void set_delay(uint32_t delay);
 
+    void close_socket() override;
+
 protected:
     virtual void set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type) override;
 

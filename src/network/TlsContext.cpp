@@ -138,7 +138,14 @@ void TlsContext::tls_record_received(uint64_t seq_no, const uint8_t data[], size
 
 void TlsContext::tls_alert(Botan::TLS::Alert alert)
 {
-    LOG(WARNING) << "Received TLS alert " << alert.type_string();
+    if(alert.type() == Botan::TLS::Alert::CLOSE_NOTIFY)
+    {
+        m_socket.close(true);
+    }
+    else
+    {
+        LOG(WARNING) << "Received TLS alert " << alert.type_string();
+    }
 }
 
 bool TlsContext::tls_session_established(const Botan::TLS::Session &session)

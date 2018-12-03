@@ -21,7 +21,7 @@ public:
     virtual void on_time_event() = 0;
 
     /// Close the underlying socket
-    void close();
+    virtual void close_socket() override;
 
     /// Get the current time (since unix epoch) in milliseconds
     uint64_t get_current_time() const
@@ -32,7 +32,7 @@ public:
 
     bool is_valid() const override final
     {
-        return m_fd > 0;
+        return m_fd >= 0;
     }
 
 private:

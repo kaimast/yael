@@ -22,6 +22,8 @@
 using namespace yael;
 using namespace std::chrono_literals;
 
+constexpr size_t NUM_CONNECTS = 1000;
+
 class Acceptor : public yael::NetworkSocketListener
 {
 public:
@@ -64,7 +66,7 @@ Acceptor::Acceptor(uint16_t port)
     }
 
     yael::NetworkSocketListener::set_socket(std::unique_ptr<network::Socket>(socket), yael::SocketType::Acceptor);
-    LOG(INFO) << "Listening for peers on host " << host << " port " << port;
+    DLOG(INFO) << "Listening for peers on host " << host << " port " << port;
 }
 
 Peer::Peer(const std::string &host, uint16_t port, uint32_t delay)
@@ -79,23 +81,21 @@ Peer::Peer(const std::string &host, uint16_t port, uint32_t delay)
     }
 
     set_socket(std::unique_ptr<network::Socket>{sock}, SocketType::Connection);
-    LOG(INFO) << "connected to " << host << ":" << port;
 }
 
 Peer::Peer(std::unique_ptr<yael::network::Socket> &&s, uint32_t delay)
     : yael::DelayedNetworkSocketListener(delay, std::forward<std::unique_ptr<yael::network::Socket>>(s), yael::SocketType::Connection)
 {
-    LOG(INFO) << "new peer connected";
 }
 
-void Peer::on_network_message(yael::network::Socket::message_in_t &msg)
+void Peer::on_network_message(yael::network::Socket::message_in_t&)
 {
-    (void)msg;
+    // no messages in the churn test
 }
 
 void stop_handler(int)
 {
-    LOG(INFO) << "Received signal. Stopping...";
+    DLOG(INFO) << "Received signal. Stopping...";
     yael::EventLoop::get_instance().stop();
 }
 
@@ -111,17 +111,14 @@ int do_child(const std::string &host, uint16_t port, uint32_t delay)
     signal(SIGSTOP, stop_handler);
     signal(SIGTERM, stop_handler);
 
-    auto &el = EventLoop::get_instance();
-
-    for(size_t i = 0; i < 1000; ++i)
+    for(size_t i = 0; i < NUM_CONNECTS; ++i)
     {
         auto c = event_loop.make_event_listener<Peer>(host, port, delay);
         c->wait_for_connection();
         c->close_socket();
     }
 
-    el.stop();
-
+    event_loop.stop();
     event_loop.wait();
     event_loop.destroy();
 

@@ -309,35 +309,37 @@ void TcpSocket::calculate_remote_address()
     m_remote_address.PortNumber = port;
 }
 
-void TcpSocket::close(bool fast)
+bool TcpSocket::close(bool fast)
 {
     if(m_state == State::Connected && !fast)
     {
         m_state = State::Shutdown;
         int i = ::shutdown(m_fd, SHUT_RD | SHUT_WR);
         (void)i; //unused
+
+        return false;
+    }
+
+    if(m_fd > 0)
+    {
+        m_state = State::Closed;
+        int i = ::close(m_fd);
+        (void)i; //unused
+        m_fd = -1;
+
+        m_slicer->buffer().reset();
     }
     else
     {
-        if(m_fd > 0)
+        if(!(m_state == State::Closed || m_state == State::Unknown))
         {
-            m_state = State::Closed;
-            int i = ::close(m_fd);
-            (void)i; //unused
-            m_fd = -1;
-
-            m_slicer->buffer().reset();
+            throw socket_error("Invalid state");
         }
-        else
-        {
-            if(!(m_state == State::Closed || m_state == State::Unknown))
-            {
-                throw socket_error("Invalid state");
-            }
-
-            //no-op
-        }
+        
+        //no-op
     }
+    
+    return true;
 }
 
 void TcpSocket::pull_messages() 

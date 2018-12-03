@@ -50,7 +50,7 @@ void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket
 }
 
 bool NetworkSocketListener::is_valid() const
-{ 
+{
     if(!m_socket)
     {
         return false;
@@ -132,12 +132,31 @@ void NetworkSocketListener::on_read_ready()
 
 void NetworkSocketListener::close_socket()
 {
-    if(!m_has_disconnected)
+    if(m_has_disconnected)
+    {
+        // pass
+    }
+    else
     {
         m_has_disconnected = true;
-        m_socket->close();
-        
-        this->on_disconnect();
+
+        if(m_socket)
+        {
+            bool done = m_socket->close();
+
+            if(done)
+            {
+                if(m_socket_type == SocketType::Connection)
+                {
+                    this->on_disconnect();
+                }
+                else if(EventLoop::is_initialized())
+                {
+                    auto &el = EventLoop::get_instance();
+                    el.unregister_event_listener(shared_from_this());
+                }
+            }
+        }
     }
 }
 

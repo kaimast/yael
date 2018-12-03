@@ -67,15 +67,6 @@ EventLoop::EventLoop(int32_t num_threads)
 
 EventLoop::~EventLoop()
 {
-    std::unique_lock lock(m_event_listeners_mutex);
-
-    for(auto &[fileno, ptr] : m_event_listeners)
-    {
-        (void)fileno;
-        delete ptr;
-    }
-
-    m_event_listeners.clear();
     ::close(m_epoll_fd);
 }
 
@@ -113,6 +104,30 @@ void EventLoop::stop()
     if(!m_okay)
     {
         return;//no-op
+    }
+    
+    std::unique_lock lock(m_event_listeners_mutex);
+
+    while(!m_event_listeners.empty())
+    {
+        auto it = m_event_listeners.begin();
+        auto [fileno, ptr] = *it;
+
+        (void)fileno;
+        auto listener = *ptr;
+
+        lock.unlock();
+
+        listener->lock();
+        listener->close_socket();
+        listener->unlock();
+
+        lock.lock();
+    }
+
+    while(!m_event_listeners.empty())
+    {
+        m_event_listeners_cond.wait(lock);
     }
 
     m_okay = false;
@@ -233,8 +248,6 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
         }
     }
 
-    m_event_listeners[idx] = ptr;
-
     auto fileno = listener->get_fileno();
 
     if(fileno <= 0)
@@ -305,6 +318,7 @@ void EventLoop::unregister_event_listener(EventListenerPtr listener)
         
         delete it->second;
         m_event_listeners.erase(it);
+
         m_event_listeners_cond.notify_all();
     }
 }
@@ -322,6 +336,7 @@ void EventLoop::thread_loop()
             return;
         }
 
+        // make a copy here
         auto listener = *ptr;
 
         listener->lock();

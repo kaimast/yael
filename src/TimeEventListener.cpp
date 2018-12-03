@@ -15,21 +15,23 @@ TimeEventListener::TimeEventListener()
 
 TimeEventListener::~TimeEventListener()
 {
-    close();
+    close_socket();
 }
 
-void TimeEventListener::close()
+void TimeEventListener::close_socket()
 {
-    if(m_fd > 0 && m_queued_events.empty())
+    if(!is_valid())
     {
-        ::close(m_fd);
-        m_fd = -1;
+        return;
+    }
 
-        if(EventLoop::is_initialized())
-        {
-            auto &el = EventLoop::get_instance();
-            el.unregister_event_listener(shared_from_this());
-        }
+    ::close(m_fd);
+    m_fd = -1;
+
+    if(EventLoop::is_initialized())
+    {
+        auto &el = EventLoop::get_instance();
+        el.unregister_event_listener(shared_from_this());
     }
 }
 
@@ -67,7 +69,7 @@ void TimeEventListener::on_read_ready()
             }
         }
 
-        if(!m_queued_events.empty())
+        if(!m_queued_events.empty() && is_valid())
         {
             auto next = m_queued_events[0];
 
