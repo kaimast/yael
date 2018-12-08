@@ -270,7 +270,7 @@ void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t 
     int epoll_res = epoll_ctl(m_epoll_fd, op, fileno, &ev);
     if(epoll_res != 0)
     {
-        LOG(FATAL) << "epoll_ctl() failed: " << strerror(errno);
+        LOG(ERROR) << "epoll_ctl() failed: " << strerror(errno);
     }
 }
 
