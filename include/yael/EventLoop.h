@@ -50,9 +50,8 @@ public:
     void register_event_listener(EventListenerPtr listener);
 
     /**
-     * Shut the event loop down
-     *
-     * Note, this is non-blocking
+     * Shut the event loop down. This will stop all active event listeners
+     * Note that this must be called from outside an event listener to avoid a deadlock!
      */
     void stop();
 
