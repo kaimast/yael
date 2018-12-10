@@ -71,7 +71,13 @@ bool NetworkSocketListener::is_connected() const
 
 void NetworkSocketListener::on_write_ready()
 {
-    bool has_more = m_socket->do_send();
+    bool has_more = false;
+
+    try {
+        has_more = m_socket->do_send();
+    } catch(const network::socket_error &e) {
+        LOG(ERROR) << e.what();
+    }
 
     if(!has_more)
     {
