@@ -13,17 +13,19 @@ using namespace yael::network;
 class Connection: public yael::NetworkSocketListener
 {
 public:
+    static constexpr size_t MAX_SEND_QUEUE_SIZE = 10 * 1024 * 1024;
+
     Connection(const Address &addr, ProtocolType type)
     {
         Socket *socket;
  
         if(type == ProtocolType::TCP)
         {
-            socket = new TcpSocket();
+            socket = new TcpSocket(MAX_SEND_QUEUE_SIZE);
         }
         else
         {
-            socket = new TlsSocket();
+            socket = new TlsSocket("", "", MAX_SEND_QUEUE_SIZE);
         }
 
         if(!socket->connect(addr))
@@ -74,11 +76,11 @@ public:
  
         if(type == ProtocolType::TCP)
         {
-            socket = new TcpSocket();
+            socket = new TcpSocket(Connection::MAX_SEND_QUEUE_SIZE);
         }
         else
         {
-            socket = new TlsSocket("../test/test.key", "../test/test.cert");
+            socket = new TlsSocket("../test/test.key", "../test/test.cert", Connection::MAX_SEND_QUEUE_SIZE);
         }
 
         if(!socket->listen(addr, 10))
@@ -188,6 +190,13 @@ TEST_P(SocketTest, send_large_chunk)
     ASSERT_EQ(len, msg->length);
     ASSERT_EQ(0, memcmp(data, msg->data, len));
 
+    ASSERT_EQ(0, m_connection1->socket().send_queue_size());
+    ASSERT_EQ(0, m_connection2->socket().send_queue_size());
+    ASSERT_EQ(Connection::MAX_SEND_QUEUE_SIZE, m_connection1->socket().max_send_queue_size());
+    ASSERT_EQ(Connection::MAX_SEND_QUEUE_SIZE, m_connection2->socket().max_send_queue_size());
+
+
+
     delete[] msg->data;
     delete[] data;
 }
@@ -216,8 +225,11 @@ TEST_P(SocketTest, send_other_way)
 
 TEST_P(SocketTest, first_in_first_out)
 {
-    auto type1 = new uint8_t(12);
-    auto type2 = new uint8_t(42);
+    uint8_t val1 = 12;
+    uint8_t val2 = 42;
+
+    auto type1 = new uint8_t(val1);
+    auto type2 = new uint8_t(val2);
     
     const uint32_t len = sizeof(uint8_t);
 
@@ -238,9 +250,9 @@ TEST_P(SocketTest, first_in_first_out)
         msg2 = m_connection1->receive();
     }
 
-    ASSERT_EQ(12, *msg1->data);
+    ASSERT_EQ(val1, *msg1->data);
     ASSERT_EQ(len, msg1->length);
-    ASSERT_EQ(42, *msg2->data);
+    ASSERT_EQ(val2, *msg2->data);
     ASSERT_EQ(len, msg2->length);
 
     delete[] msg1->data;
