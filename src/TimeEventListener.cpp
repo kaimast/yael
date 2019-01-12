@@ -15,7 +15,7 @@ TimeEventListener::TimeEventListener()
 
 TimeEventListener::~TimeEventListener()
 {
-    close_socket();
+    TimeEventListener::close_socket();
 }
 
 void TimeEventListener::close_socket()

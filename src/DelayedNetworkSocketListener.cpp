@@ -83,7 +83,7 @@ DelayedNetworkSocketListener::DelayedNetworkSocketListener(uint32_t delay, std::
 
 DelayedNetworkSocketListener::~DelayedNetworkSocketListener()
 {
-    close_socket();
+    DelayedNetworkSocketListener::close_socket();
 }
 
 void DelayedNetworkSocketListener::close_socket()
