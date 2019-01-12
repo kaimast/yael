@@ -166,7 +166,11 @@ public:
 
     virtual int32_t get_fileno() const = 0;
 
+    /// What is the maximum amount of data that can be queued up? 
     virtual size_t max_send_queue_size() const = 0;
+
+    /// How much data is queued to be sent?
+    virtual size_t send_queue_size() const = 0;
 
     virtual std::optional<message_in_t> receive() = 0;
 };

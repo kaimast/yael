@@ -464,7 +464,7 @@ bool TcpSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len)
             throw socket_error("Send queue is full");
         }
 
-        m_send_queue_size += len;
+        m_send_queue_size += msg_out.length;
         m_send_queue.emplace_back(std::move(msg_out));
     }
 

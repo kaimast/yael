@@ -68,6 +68,8 @@ public:
 
     bool is_valid() const override { return m_fd > 0; }
 
+    size_t send_queue_size() const  override { return m_send_queue_size; }
+
     size_t max_send_queue_size() const override { return m_max_send_queue_size; }
 
 protected:
@@ -155,8 +157,8 @@ private:
 
     State m_state = State::Unknown;
 
-    // Queue at most 1Mb
-    const size_t m_max_send_queue_size = 1024 * 1024;
+    // Keep track of the size of outgoing data
+    const size_t m_max_send_queue_size;
     size_t m_send_queue_size = 0;
 };
 
