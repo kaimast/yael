@@ -19,7 +19,7 @@ public:
      *
      * You only need to specify key and certificate for the server
      */
-    TlsSocket(const std::string &key_path = "", const std::string &cert_path = "", size_t max_send_queue_size = TcpSocket::DEFAULT_MAX_SEND_QUEUE_SIZE);
+    TlsSocket(MessageMode mode, const std::string &key_path = "", const std::string &cert_path = "", size_t max_send_queue_size = TcpSocket::DEFAULT_MAX_SEND_QUEUE_SIZE);
 
     ~TlsSocket();
 
@@ -45,7 +45,7 @@ public:
 protected:
     //! Construct as a child socket
     //! Is only called by Socket::accept
-    TlsSocket(int32_t fd, const std::string &key_path, const std::string &cert_path, size_t max_send_queue_size);
+    TlsSocket(MessageMode mode, int32_t fd, const std::string &key_path, const std::string &cert_path, size_t max_send_queue_size);
 
 private:
     void pull_messages() override;
@@ -71,6 +71,7 @@ private:
     buffer_t m_buffer;
 
     State m_state;
+    MessageMode m_message_mode;
 };
 
 inline bool TlsSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len)

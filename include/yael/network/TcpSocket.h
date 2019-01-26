@@ -8,14 +8,13 @@
 #include <tuple>
 #include <memory>
 
+#include "MessageSlicer.h"
 #include "Socket.h"
 
 namespace yael
 {
 namespace network
 {
-
-class MessageSlicer;
 
 /**
  * @brief Object-oriented wrapper for a TCP socket
@@ -28,7 +27,7 @@ public:
 
     TcpSocket(const Socket& other) = delete;
 
-    TcpSocket(size_t max_send_queue_size= DEFAULT_MAX_SEND_QUEUE_SIZE);
+    TcpSocket(MessageMode mode = MessageMode::Datagram, size_t max_send_queue_size= DEFAULT_MAX_SEND_QUEUE_SIZE);
     virtual ~TcpSocket();
 
     std::vector<std::unique_ptr<Socket>> accept() override;
@@ -102,7 +101,7 @@ protected:
         
     //! Construct as a child socket
     //! Is only called by Socket::accept
-    TcpSocket(int fd, size_t max_send_queue_size);
+    TcpSocket(MessageMode mode, int fd, size_t max_send_queue_size);
 
     //! Pull new messages from the socket onto our stack
     virtual void pull_messages();

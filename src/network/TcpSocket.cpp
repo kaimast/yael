@@ -17,7 +17,7 @@
 #include <cassert>
 #include <glog/logging.h>
 
-#include "MessageSlicer.h"
+#include "DatagramMessageSlicer.h"
 
 using namespace std;
 
@@ -29,16 +29,30 @@ namespace network
 
 constexpr int TRUE_FLAG = 1;
 
-TcpSocket::TcpSocket(size_t max_send_queue_size)
+TcpSocket::TcpSocket(MessageMode mode, size_t max_send_queue_size)
     : m_port(0), m_is_ipv6(false), m_fd(-1), m_max_send_queue_size(max_send_queue_size)
 {
-    m_slicer = std::make_unique<MessageSlicer>();
+    if(mode == MessageMode::Datagram)
+    {
+        m_slicer = std::make_unique<DatagramMessageSlicer>();
+    }
+    else
+    {
+        throw std::runtime_error("Invalid message mode");
+    }
 }
 
-TcpSocket::TcpSocket(int fd, size_t max_send_queue_size)
+TcpSocket::TcpSocket(MessageMode mode, int fd, size_t max_send_queue_size)
     : m_port(0), m_is_ipv6(false), m_fd(fd), m_max_send_queue_size(max_send_queue_size)
 {
-    m_slicer = std::make_unique<MessageSlicer>();
+    if(mode == MessageMode::Datagram)
+    {
+        m_slicer = std::make_unique<DatagramMessageSlicer>();
+    }
+    else
+    {
+        throw std::runtime_error("Invalid message mode");
+    }
 
     int flags = fcntl(m_fd, F_GETFL, 0);
     flags = flags | O_NONBLOCK;
@@ -275,7 +289,7 @@ std::vector<std::unique_ptr<Socket>> TcpSocket::accept()
         
         if(fd >= 0)
         {
-            auto ptr = new TcpSocket(fd, m_max_send_queue_size);
+            auto ptr = new TcpSocket(m_slicer->type(), fd, m_max_send_queue_size);
             res.emplace_back(std::unique_ptr<Socket>(ptr));
         }
         else
@@ -454,6 +468,8 @@ bool TcpSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len)
         throw socket_error("Message size has to be > 0");
     }
 
+    m_slicer->prepare_message(data, len);
+
     auto msg_out = message_out_internal_t(std::move(data), len);
 
     {
@@ -492,21 +508,12 @@ bool TcpSocket::do_send()
 
         auto &message = *it;
         
-        const uint32_t length = message.length + MessageSlicer::HEADER_SIZE;
+        const uint32_t length = message.length;
         const uint8_t *rdata = message.data.get();
 
         while(message.sent_pos < length)
         {
-            int32_t s = 0;
-
-            if(message.sent_pos < MessageSlicer::HEADER_SIZE)
-            {
-                s = ::write(m_fd, reinterpret_cast<const char*>(&length)+ message.sent_pos, MessageSlicer::HEADER_SIZE - message.sent_pos);
-            }
-            else
-            {
-                s = ::write(m_fd, rdata+ (message.sent_pos - MessageSlicer::HEADER_SIZE), length - message.sent_pos);
-            }
+            auto s = ::write(m_fd, rdata + message.sent_pos, length - message.sent_pos);
 
             if(s > 0)
             {

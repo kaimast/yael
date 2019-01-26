@@ -21,11 +21,11 @@ public:
  
         if(type == ProtocolType::TCP)
         {
-            socket = new TcpSocket(MAX_SEND_QUEUE_SIZE);
+            socket = new TcpSocket(MessageMode::Datagram, MAX_SEND_QUEUE_SIZE);
         }
         else
         {
-            socket = new TlsSocket("", "", MAX_SEND_QUEUE_SIZE);
+            socket = new TlsSocket(MessageMode::Datagram, "", "", MAX_SEND_QUEUE_SIZE);
         }
 
         if(!socket->connect(addr))
@@ -76,11 +76,11 @@ public:
  
         if(type == ProtocolType::TCP)
         {
-            socket = new TcpSocket(Connection::MAX_SEND_QUEUE_SIZE);
+            socket = new TcpSocket(MessageMode::Datagram, Connection::MAX_SEND_QUEUE_SIZE);
         }
         else
         {
-            socket = new TlsSocket("../test/test.key", "../test/test.cert", Connection::MAX_SEND_QUEUE_SIZE);
+            socket = new TlsSocket(MessageMode::Datagram, "../test/test.key", "../test/test.cert", Connection::MAX_SEND_QUEUE_SIZE);
         }
 
         if(!socket->listen(addr, 10))

@@ -1,6 +1,5 @@
 #include "yael/network/TlsSocket.h"
 
-#include "MessageSlicer.h"
 #include "TlsContext.h"
 
 #include <glog/logging.h>
@@ -10,14 +9,14 @@ namespace yael
 namespace network
 {
 
-TlsSocket::TlsSocket(const std::string &key_path, const std::string &cert_path, size_t max_send_queue_size)
-    : TcpSocket(max_send_queue_size), m_key_path(key_path), m_cert_path(cert_path)
+TlsSocket::TlsSocket(MessageMode mode, const std::string &key_path, const std::string &cert_path, size_t max_send_queue_size)
+    : TcpSocket(mode, max_send_queue_size), m_key_path(key_path), m_cert_path(cert_path)
 {
     m_state = State::Unknown;
 }
 
-TlsSocket::TlsSocket(int32_t fd, const std::string &key_path, const std::string &cert_path, size_t max_send_queue_size)
-    : TcpSocket(fd, max_send_queue_size), m_key_path(key_path), m_cert_path(cert_path)
+TlsSocket::TlsSocket(MessageMode mode, int32_t fd, const std::string &key_path, const std::string &cert_path, size_t max_send_queue_size)
+    : TcpSocket(mode, fd, max_send_queue_size), m_key_path(key_path), m_cert_path(cert_path)
 {
     m_state = State::Setup;
     m_tls_context = std::make_unique<TlsServer>(*this, key_path, cert_path);
@@ -43,7 +42,7 @@ std::vector<std::unique_ptr<Socket>> TlsSocket::accept()
         
         if(fd >= 0)
         {
-            auto ptr = new TlsSocket(fd, m_key_path, m_cert_path,max_send_queue_size());
+            auto ptr = new TlsSocket(m_slicer->type(), fd, m_key_path, m_cert_path,max_send_queue_size());
             res.emplace_back(std::unique_ptr<Socket>(ptr));
         }
         else

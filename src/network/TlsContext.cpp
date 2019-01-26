@@ -6,7 +6,7 @@
 #include <botan/tls_client.h>
 #include <glog/logging.h>
 
-#include "MessageSlicer.h"
+#include "DatagramMessageSlicer.h"
 
 namespace yael
 {

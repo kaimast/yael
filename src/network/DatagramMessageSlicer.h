@@ -1,6 +1,6 @@
 #pragma once
 
-#include "yael/network/Socket.h"
+#include "yael/network/MessageSlicer.h"
 #include <cmath>
 #include <cstring>
 
@@ -15,24 +15,44 @@ namespace network
  * Expected format: <size: uint32_t> <bytes: uint8_t[]>
  * where the length of bytes equals the value of size.
  */
-class MessageSlicer
+class DatagramMessageSlicer : public MessageSlicer
 {
 public:
     static constexpr msg_len_t HEADER_SIZE = sizeof(msg_len_t);
 
-    MessageSlicer() = default;
+    DatagramMessageSlicer() = default;
 
-    buffer_t& buffer()
+    buffer_t& buffer() override
     {
         return m_buffer;
     }
     
-    bool has_messages() const
+    bool has_messages() const override
     {
         return !m_messages.empty();
     }
+    
+    MessageMode type() const override
+    {
+        return MessageMode::Datagram;
+    }
 
-    bool get_message(Socket::message_in_t& message)
+    void prepare_message(std::unique_ptr<uint8_t[]> &ptr, uint32_t &length) override
+    {
+        auto cptr = ptr.get();
+        ptr.release();
+
+        auto payload_length = length;
+        length = length + sizeof(length);
+
+        cptr = reinterpret_cast<uint8_t*>(realloc(cptr, length));
+        memmove(cptr+sizeof(length), cptr, payload_length);
+        memcpy(cptr, reinterpret_cast<uint8_t*>(&length), sizeof(length));
+
+        ptr = std::unique_ptr<uint8_t[]>(cptr);
+    }
+
+    bool get_message(Socket::message_in_t& message) override
     {
         if(!has_messages())
         {
@@ -47,7 +67,7 @@ public:
         return true;
     }
 
-    void process_buffer();
+    void process_buffer() override;
 
     /// Similar to Socket::message_in_t but also holds the message header and a read position
     struct message_in_t
@@ -99,7 +119,7 @@ private:
     message_in_t m_current_message;
 };
 
-inline void MessageSlicer::process_buffer()
+inline void DatagramMessageSlicer::process_buffer()
 {
     message_in_t msg;
     bool received_full_msg = false;
