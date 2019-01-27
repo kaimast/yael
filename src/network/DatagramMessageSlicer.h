@@ -112,7 +112,7 @@ private:
     //! Internal message buffer
     buffer_t m_buffer;
 
-    //! Current positin in the message buffer
+    //! Current position in the message buffer
     //! This is used for multiple messages in one receive call
     //! Message in progress to be read
     bool m_has_current_message = false;

@@ -18,6 +18,7 @@
 #include <glog/logging.h>
 
 #include "DatagramMessageSlicer.h"
+#include "StreamMessageSlicer.h"
 
 using namespace std;
 
@@ -36,6 +37,10 @@ TcpSocket::TcpSocket(MessageMode mode, size_t max_send_queue_size)
     {
         m_slicer = std::make_unique<DatagramMessageSlicer>();
     }
+    else if(mode == MessageMode::Stream)
+    {
+        m_slicer = std::make_unique<StreamMessageSlicer>();
+    }
     else
     {
         throw std::runtime_error("Invalid message mode");
@@ -48,6 +53,10 @@ TcpSocket::TcpSocket(MessageMode mode, int fd, size_t max_send_queue_size)
     if(mode == MessageMode::Datagram)
     {
         m_slicer = std::make_unique<DatagramMessageSlicer>();
+    }
+    else if(mode == MessageMode::Stream)
+    {
+        m_slicer = std::make_unique<StreamMessageSlicer>();
     }
     else
     {

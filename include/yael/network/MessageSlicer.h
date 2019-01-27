@@ -10,7 +10,15 @@ namespace network
 
 enum class MessageMode
 {
+    /*
+     * Will ensure messages arrive as whole by encoding message length
+     */
     Datagram,
+
+    /*
+     * Send data as-is, will arrive in order but might fragmented
+     * Use this if you want to build your own protocol on top of low-level streams
+     */
     Stream
 };
 
