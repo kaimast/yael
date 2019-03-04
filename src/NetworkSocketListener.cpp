@@ -76,7 +76,8 @@ void NetworkSocketListener::on_write_ready()
     try {
         has_more = m_socket->do_send();
     } catch(const network::socket_error &e) {
-        LOG(ERROR) << e.what();
+        LOG(WARNING) << e.what();
+        close_socket();
     }
 
     if(!has_more)

@@ -72,7 +72,14 @@ public:
 
     void send(std::unique_ptr<uint8_t[]> &&data, size_t length) 
     {
-        bool has_more = m_socket->send(std::move(data), length);
+        bool has_more;
+
+        try {
+            has_more = m_socket->send(std::move(data), length);
+        } catch(const network::socket_error &e) {
+            LOG(WARNING) << e.what();
+            return;
+        }
 
         if(has_more)
         {
@@ -86,7 +93,14 @@ public:
 
     void send(const uint8_t *data, size_t length) 
     {
-        bool has_more = m_socket->send(data, length);
+        bool has_more;
+
+        try {
+            has_more = m_socket->send(data, length);
+        } catch(const network::socket_error &e) {
+            LOG(WARNING) << e.what();
+            return;
+        }
 
         if(has_more)
         {
