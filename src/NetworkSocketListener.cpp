@@ -87,7 +87,7 @@ void NetworkSocketListener::on_write_ready()
         has_more = m_socket->do_send();
     } catch(const network::socket_error &e) {
         LOG(WARNING) << e.what();
-        close_socket();
+        close_socket_internal(lock);
     }
 
     if(!has_more)
@@ -143,7 +143,7 @@ void NetworkSocketListener::on_read_ready()
         // After processing the last message we will notify the user that the socket is closed
         if(m_socket && !m_socket->is_valid())
         {
-            close_socket();
+            close_socket_internal(lock);
         }
  
         break;
@@ -154,33 +154,31 @@ void NetworkSocketListener::on_read_ready()
 
 }
 
-void NetworkSocketListener::close_socket()
+void NetworkSocketListener::close_socket_internal(std::unique_lock<std::mutex> &lock)
 {
-    std::unique_lock lock(m_mutex);
-
     if(m_has_disconnected)
     {
         // pass
+        return;
     }
-    else
+
+    m_has_disconnected = true;
+
+    if(m_socket)
     {
-        m_has_disconnected = true;
+        bool done = m_socket->close();
+        lock.unlock();
 
-        if(m_socket)
+        if(done)
         {
-            bool done = m_socket->close();
-
-            if(done)
+            if(m_socket_type == SocketType::Connection)
             {
-                if(m_socket_type == SocketType::Connection)
-                {
-                    this->on_disconnect();
-                }
-                else if(EventLoop::is_initialized())
-                {
-                    auto &el = EventLoop::get_instance();
-                    el.unregister_event_listener(shared_from_this());
-                }
+                this->on_disconnect();
+            }
+            else if(EventLoop::is_initialized())
+            {
+                auto &el = EventLoop::get_instance();
+                el.unregister_event_listener(shared_from_this());
             }
         }
     }

@@ -22,13 +22,15 @@ void TimeEventListener::close_socket()
 {
     std::unique_lock lock(m_mutex);
 
-    if(!is_valid())
+    if(m_fd < 0)
     {
         return;
     }
 
     ::close(m_fd);
     m_fd = -1;
+
+    lock.unlock();
 
     if(EventLoop::is_initialized())
     {
@@ -77,7 +79,7 @@ void TimeEventListener::on_read_ready()
         }
         lock.lock();
 
-        if(!m_queued_events.empty() && is_valid())
+        if(!m_queued_events.empty() && m_fd >= 0)
         {
             auto next = m_queued_events[0];
 

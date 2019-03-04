@@ -133,6 +133,8 @@ protected:
     std::unique_ptr<network::Socket> release_socket();
 
 private:
+    void close_socket_internal(std::unique_lock<std::mutex> &lock);
+
     void on_read_ready() override final;
     void on_write_ready() override final;
 
@@ -144,6 +146,12 @@ private:
     
     bool m_has_disconnected = false;
 };
+
+inline void NetworkSocketListener::close_socket()
+{
+    std::unique_lock lock(m_mutex);
+    close_socket_internal(lock);
+}
 
 }
 
