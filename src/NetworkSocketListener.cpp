@@ -21,6 +21,8 @@ NetworkSocketListener::NetworkSocketListener(std::unique_ptr<network::Socket> &&
 
 std::unique_ptr<network::Socket> NetworkSocketListener::release_socket()
 {
+    std::unique_lock lock(m_mutex);
+
     // Move socket before we unregistered so socket doesn't get closed
     auto sock = std::move(m_socket);
 
@@ -34,6 +36,8 @@ std::unique_ptr<network::Socket> NetworkSocketListener::release_socket()
 
 void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type)
 {
+    std::unique_lock lock(m_mutex);
+
     if(m_socket)
     {
         throw std::runtime_error("There is already a socket assigned to this listener!");
@@ -49,8 +53,10 @@ void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket
     m_fileno = m_socket->get_fileno();
 }
 
-bool NetworkSocketListener::is_valid() const
+bool NetworkSocketListener::is_valid()
 {
+    std::unique_lock lock(m_mutex);
+
     if(!m_socket)
     {
         return false;
@@ -59,8 +65,10 @@ bool NetworkSocketListener::is_valid() const
     return m_socket->is_valid();
 }
 
-bool NetworkSocketListener::is_connected() const
+bool NetworkSocketListener::is_connected()
 {
+    std::unique_lock lock(m_mutex);
+
     if(!m_socket)
     {
         return false;
@@ -71,6 +79,8 @@ bool NetworkSocketListener::is_connected() const
 
 void NetworkSocketListener::on_write_ready()
 {
+    std::unique_lock lock(m_mutex);
+
     bool has_more = false;
 
     try {
@@ -88,11 +98,16 @@ void NetworkSocketListener::on_write_ready()
 
 void NetworkSocketListener::on_read_ready()
 {
+    std::unique_lock lock(m_mutex);
+
     switch(m_socket_type)
     {
     case SocketType::Acceptor:
     {
-        for(auto &s: m_socket->accept())
+        auto result = m_socket->accept();
+        lock.unlock();
+
+        for(auto &s: result)
         {
             this->on_new_connection(std::move(s));
         }
@@ -109,7 +124,9 @@ void NetworkSocketListener::on_read_ready()
 
                 if(message)
                 {
+                    lock.unlock();
                     this->on_network_message(*message);
+                    lock.lock();
                 }
                 else
                 {
@@ -139,6 +156,8 @@ void NetworkSocketListener::on_read_ready()
 
 void NetworkSocketListener::close_socket()
 {
+    std::unique_lock lock(m_mutex);
+
     if(m_has_disconnected)
     {
         // pass

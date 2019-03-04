@@ -37,9 +37,9 @@ public:
     /**
      * @brief returns true if the associated socket exists (either connected, connecting, shutting down, or listening)
      */
-    bool is_valid() const override;
+    bool is_valid() override;
 
-    bool is_connected() const;
+    bool is_connected();
 
     void wait_for_connection()
     {
@@ -65,9 +65,10 @@ public:
     virtual void on_new_connection(std::unique_ptr<network::Socket> &&socket) { (void)socket; }
     virtual void on_disconnect() {}
 
-    bool has_messages() const
+    bool has_messages()
     {
-        return is_valid() && m_socket->has_messages();
+        std::unique_lock lock(m_mutex);
+        return m_socket && m_socket->has_messages();
     }
 
     void send(std::unique_ptr<uint8_t[]> &&data, size_t length) 
@@ -134,6 +135,8 @@ protected:
 private:
     void on_read_ready() override final;
     void on_write_ready() override final;
+
+    std::mutex m_mutex;
 
     std::unique_ptr<network::Socket> m_socket;
     SocketType m_socket_type;

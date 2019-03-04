@@ -14,6 +14,8 @@ public:
 
     void on_time_event() override
     {
+        std::unique_lock lock(m_mutex);
+
         if(m_socket == nullptr || !m_socket->is_valid())
         {
             return;
@@ -45,12 +47,16 @@ public:
 
     void schedule(std::unique_ptr<uint8_t[]> &&data, size_t length, uint32_t delay)
     {
+        std::unique_lock lock(m_mutex);
+
         m_pending_messages.emplace_back(std::pair{std::move(data), length});
         TimeEventListener::schedule(delay);
     }
 
     void schedule(const uint8_t *data, size_t length, uint32_t delay)
     {
+        std::unique_lock lock(m_mutex);
+
         auto copy = std::make_unique<uint8_t[]>(length);
         memcpy(copy.get(), data, length);
         m_pending_messages.emplace_back(std::pair{std::move(copy), length});
@@ -59,6 +65,8 @@ public:
 
 private:
     std::list<std::pair<std::unique_ptr<uint8_t[]>, size_t>> m_pending_messages;
+
+    std::mutex m_mutex;
     network::Socket *m_socket;
 };
 
@@ -90,9 +98,7 @@ void DelayedNetworkSocketListener::close_socket()
 {
     if(EventLoop::is_initialized() && m_sender != nullptr)
     {
-        m_sender->lock();
         m_sender->close_socket();
-        m_sender->unlock();
     }
 
     NetworkSocketListener::close_socket();
@@ -106,9 +112,7 @@ void DelayedNetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_
         return NetworkSocketListener::send(std::move(data), length);
     }
 
-    m_sender->lock();
     m_sender->schedule(std::move(data), length, m_delay);
-    m_sender->unlock();
 }
 
 void DelayedNetworkSocketListener::send(const uint8_t *data, size_t length)
@@ -119,9 +123,7 @@ void DelayedNetworkSocketListener::send(const uint8_t *data, size_t length)
         return NetworkSocketListener::send(data, length);
     }
 
-    m_sender->lock();
     m_sender->schedule(data, length, m_delay);
-    m_sender->unlock();
 }
 
 void DelayedNetworkSocketListener::set_delay(uint32_t delay)

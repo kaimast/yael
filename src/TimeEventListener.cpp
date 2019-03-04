@@ -20,6 +20,8 @@ TimeEventListener::~TimeEventListener()
 
 void TimeEventListener::close_socket()
 {
+    std::unique_lock lock(m_mutex);
+
     if(!is_valid())
     {
         return;
@@ -37,13 +39,14 @@ void TimeEventListener::close_socket()
 
 void TimeEventListener::on_read_ready()
 {
+    std::unique_lock lock(m_mutex);
+
     uint64_t buf;
     ::read(m_fd, &buf, sizeof(buf));
 
     if(buf == 1)
     {
         auto now = get_current_time();
-
         size_t count = 0;
 
         while(true)
@@ -56,11 +59,9 @@ void TimeEventListener::on_read_ready()
             auto it = m_queued_events.begin();
             if(*it <= now)
             {
-                // erase befroe we invoke the callback
+                // erase before we invoke the callback
                 // because application code might call schedule()
                 m_queued_events.erase(it);
-                this->on_time_event();
-
                 count++;
             }
             else
@@ -68,6 +69,13 @@ void TimeEventListener::on_read_ready()
                 break;
             }
         }
+
+        lock.unlock();
+        for(size_t i = 0; i < count; ++i)
+        {
+            this->on_time_event();
+        }
+        lock.lock();
 
         if(!m_queued_events.empty() && is_valid())
         {

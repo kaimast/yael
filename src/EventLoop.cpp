@@ -117,11 +117,7 @@ void EventLoop::stop()
         auto listener = *ptr;
 
         lock.unlock();
-
-        listener->lock();
         listener->close_socket();
-        listener->unlock();
-
         lock.lock();
     }
 
@@ -339,8 +335,6 @@ void EventLoop::thread_loop()
         // make a copy here
         auto listener = *ptr;
 
-        listener->lock();
-
         if(type == EventType::ReadWrite)
         {
             listener->on_read_ready();
@@ -377,8 +371,6 @@ void EventLoop::thread_loop()
         {
             unregister_event_listener(listener);
         }
-
-        listener->unlock();
     }
 }
 

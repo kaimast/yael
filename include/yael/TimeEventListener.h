@@ -1,6 +1,8 @@
 #pragma once
 
 #include <chrono>
+#include <mutex>
+
 #include "EventListener.h"
 
 namespace yael
@@ -30,8 +32,9 @@ public:
         return std::chrono::duration_cast<std::chrono::milliseconds>(current_time).count();
     }
 
-    bool is_valid() const override final
+    bool is_valid() override final
     {
+        std::unique_lock lock(m_mutex);
         return m_fd >= 0;
     }
 
@@ -49,6 +52,7 @@ private:
     int32_t m_fileno;
     int32_t m_fd;
 
+    std::mutex m_mutex;
     std::vector<uint64_t> m_queued_events;
 };
 

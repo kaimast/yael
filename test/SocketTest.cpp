@@ -43,8 +43,8 @@ public:
     using NetworkSocketListener::set_socket;
 
     std::optional<Socket::message_in_t> receive()
-    {   
-        lock();
+    {
+        std::unique_lock lock(m_mutex);
         std::optional<Socket::message_in_t> out = {};
 
         if(!m_messages.empty())
@@ -53,16 +53,17 @@ public:
             m_messages.pop_front();
         }
 
-        unlock();
         return out;
     }
 
     void on_network_message(Socket::message_in_t &msg)
     {
+        std::unique_lock lock(m_mutex);
         m_messages.push_back(msg);
     }
 
 private:
+    std::mutex m_mutex;
     std::list<Socket::message_in_t> m_messages;
 };
 

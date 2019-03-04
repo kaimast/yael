@@ -44,9 +44,7 @@ TEST(TimeEventTest, multi_schedule)
     const uint32_t expected2 = 2;
 
     auto hdl = el.make_event_listener<TestTimeListener>();
-    hdl->lock();
     hdl->schedule(100);
-    hdl->unlock();
 
     while(hdl->count < expected1)
     {
@@ -55,9 +53,7 @@ TEST(TimeEventTest, multi_schedule)
 
     EXPECT_EQ(expected1, hdl->count);
 
-    hdl->lock();
     hdl->schedule(100);
-    hdl->unlock();
 
     while(hdl->count < expected2)
     {
@@ -80,9 +76,7 @@ TEST(TimeEventTest, self_schedule)
     constexpr uint64_t expected = 10;
     auto hdl = el.make_event_listener<TestTimeListener2>();
 
-    hdl->lock();
     hdl->schedule(0);
-    hdl->unlock();
 
     while(hdl->count != expected)
     {
@@ -104,11 +98,9 @@ TEST(TimeEventTest, schedule_three)
 
     auto hdl = el.make_event_listener<TestTimeListener>();
 
-    hdl->lock();
     hdl->schedule(200);
     hdl->schedule(100);
     hdl->schedule(400);
-    hdl->unlock();
 
     while(hdl->count != 3)
     {
@@ -130,11 +122,9 @@ TEST(TimeEventTest, schedule_three2)
 
     auto hdl = el.make_event_listener<TestTimeListener>();
 
-    hdl->lock();
     hdl->schedule(0);
     hdl->schedule(0);
     hdl->schedule(0);
-    hdl->unlock();
 
     while(hdl->count != 3)
     {
