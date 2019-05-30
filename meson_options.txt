@@ -1,0 +1,1 @@
+option('botan_dir', type : 'string', value : '/usr/include/botan-2', description : '')

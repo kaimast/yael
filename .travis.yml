@@ -1,0 +1,16 @@
+dist: xenial
+sudo: required
+language: cpp
+
+cache:
+    directories:
+        - $HOME/prereq
+        - $HOME/local
+
+script:
+    - bash ci/install-packages.sh
+    - bash ci/setup-prereq-ext.sh
+    - bash ci/setup-yael.sh
+    - bash ci/clang-tidy.sh
+    - bash ci/unit-tests.sh
+    - bash ci/integration-tests.sh
