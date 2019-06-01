@@ -77,7 +77,7 @@ public:
      * @brief destroys the event loop instance. it is safe to call this multiple times.
      * @note you still have to destroy the instance after the event loop is destroyed
      */
-    static void destroy();
+    static void destroy() noexcept;
 
     /**
      * Get relative local time (in milliseconds)

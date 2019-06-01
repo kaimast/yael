@@ -83,16 +83,16 @@ void EventLoop::initialize(int32_t num_threads) noexcept
     m_instance->run();
 }
 
-void EventLoop::destroy()
+void EventLoop::destroy() noexcept
 {
     if(m_instance == nullptr)
     {
-        throw std::runtime_error("Instance does not exist.");
+        LOG(FATAL) << "Cannot destroy event loop: instance does not exist";
     }
 
     if(m_instance->m_okay)
     {
-        throw std::runtime_error("Event loop has to be stopped first!");
+        LOG(FATAL) << "Cannot stop event loop: has to be stopped first!";
     }
 
     delete m_instance;

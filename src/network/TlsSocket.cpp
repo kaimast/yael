@@ -17,7 +17,7 @@ TlsSocket::TlsSocket(MessageMode mode, int32_t fd, std::string key_path, std::st
     : TcpSocket(mode, fd, max_send_queue_size), m_key_path(std::move(key_path)), m_cert_path(std::move(cert_path))
 {
     m_state = State::Setup;
-    m_tls_context = std::make_unique<TlsServer>(*this, key_path, cert_path);
+    m_tls_context = std::make_unique<TlsServer>(*this, m_key_path, m_cert_path);
 }
 
 TlsSocket::~TlsSocket()
