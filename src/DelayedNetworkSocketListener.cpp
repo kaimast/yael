@@ -16,7 +16,7 @@ private:
     };
 
 public:
-    DelayedMessageSender(NetworkSocketListener *socket)
+    explicit DelayedMessageSender(NetworkSocketListener *socket)
         : m_socket(socket)
     {}
 

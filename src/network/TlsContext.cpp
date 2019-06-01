@@ -8,9 +8,7 @@
 
 #include "DatagramMessageSlicer.h"
 
-namespace yael
-{
-namespace network
+namespace yael::network
 {
 
 TlsContext::TlsContext(TlsSocket &socket)
@@ -176,6 +174,4 @@ TlsClient::TlsClient(TlsSocket &socket)
         Botan::TLS::Protocol_Version::TLS_V12);
 }
 
-
-}
-}
+} //namespace yael::network

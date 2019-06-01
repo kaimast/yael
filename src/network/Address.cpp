@@ -1,41 +1,40 @@
 #include "yael/network/Address.h"
 
+#include <array>
 #include <stdexcept>
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
 
-namespace yael
-{
-namespace network
+namespace yael::network
 {
 
 Address::Address(const sockaddr_in6& addr)
 {
-    char ipAsString[INET6_ADDRSTRLEN];
+    std::array<char, INET6_ADDRSTRLEN> ip_as_string;
 
-    if(inet_ntop( AF_INET6, &addr.sin6_addr, &ipAsString[0], 25) == nullptr)
+    if(inet_ntop( AF_INET6, &addr.sin6_addr, ip_as_string.data(), 25) == nullptr)
     {
         throw std::runtime_error("invalid sock address");
     }
 
     IPv6 = true;
-    IP = std::string(&ipAsString[0]);
+    IP = std::string(ip_as_string.data());
     PortNumber = ntohs(addr.sin6_port);
 }
 
 Address::Address(const sockaddr_in& addr)
 {
-    char ipAsString[INET_ADDRSTRLEN];
+    std::array<char, INET6_ADDRSTRLEN> ip_as_string;
 
-    if(inet_ntop( AF_INET, &addr.sin_addr, &ipAsString[0], 16) == nullptr)
+    if(inet_ntop( AF_INET, &addr.sin_addr, ip_as_string.data(), 16) == nullptr)
     {
         throw std::runtime_error("invalid sock address");
     }
 
     IPv6 = false;
-    IP = std::string(&ipAsString[0]);
+    IP = std::string(ip_as_string.data());
     PortNumber = ntohs(addr.sin_port);
 }
 
@@ -72,7 +71,7 @@ Address resolve_URL(const std::string &url, uint16_t port_number, bool IPv6)
     struct addrinfo *host, *hosti;
     Address address;
 
-    int error = getaddrinfo(url.c_str(), 0, 0, &host );
+    int error = getaddrinfo(url.c_str(), nullptr, nullptr, &host );
 
     if (error != 0)
     {
@@ -80,7 +79,7 @@ Address resolve_URL(const std::string &url, uint16_t port_number, bool IPv6)
     }
 
     // Look for the correct address.
-    for (hosti = host; hosti != 0; hosti = hosti->ai_next)
+    for (hosti = host; hosti != nullptr; hosti = hosti->ai_next)
     {
         if((IPv6 && hosti->ai_family != AF_INET6) || (!IPv6 && hosti->ai_family == AF_INET6))
         {
@@ -107,5 +106,4 @@ Address resolve_URL(const std::string &url, uint16_t port_number, bool IPv6)
     return address;
 }
 
-}
-}
+} //namespace yael::network

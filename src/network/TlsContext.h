@@ -14,9 +14,7 @@
 #include "ClientCredentials.h"
 #include "ServerCredentials.h"
 
-namespace yael
-{
-namespace network
+namespace yael::network
 {
 
 class TlsContext:  public Botan::TLS::Callbacks
@@ -81,6 +79,4 @@ private:
     ClientCredentials m_credentials;
 };
 
-
-}
-}
+} // namespace yael::network

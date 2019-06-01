@@ -22,10 +22,7 @@
 
 using namespace std;
 
-namespace yael
-{
-
-namespace network
+namespace yael::network
 {
 
 constexpr int TRUE_FLAG = 1;
@@ -63,7 +60,7 @@ TcpSocket::TcpSocket(MessageMode mode, int fd, size_t max_send_queue_size)
         throw std::runtime_error("Invalid message mode");
     }
 
-    int flags = fcntl(m_fd, F_GETFL, 0);
+    uint32_t flags = fcntl(m_fd, F_GETFL, 0);
     flags = flags | O_NONBLOCK;
     fcntl(m_fd, F_SETFL, flags);
 
@@ -166,7 +163,7 @@ bool TcpSocket::listen(const Address& address, uint32_t backlog)
         throw socket_error("Failed to bind socket!");
     }
 
-    int flags = fcntl(m_fd, F_GETFL, 0);
+    uint32_t flags = fcntl(m_fd, F_GETFL, 0);
     flags = flags | O_NONBLOCK;
     fcntl(m_fd, F_SETFL, flags);
 
@@ -217,7 +214,7 @@ bool TcpSocket::connect(const Address& address, const std::string& name)
     }
 
     // Set it blocking just for connect
-    int flags = fcntl(m_fd, F_GETFL, 0);
+    uint32_t flags = fcntl(m_fd, F_GETFL, 0);
     flags = flags & ~O_NONBLOCK;
     fcntl(m_fd, F_SETFL, flags);
 
@@ -356,7 +353,7 @@ bool TcpSocket::close(bool fast)
     {
         if(!(m_state == State::Closed || m_state == State::Unknown))
         {
-            throw socket_error("Invalid state");
+            LOG(FATAL) << "Invalid state";
         }
         
         //no-op
@@ -571,5 +568,4 @@ bool TcpSocket::do_send()
     }
 }
 
-}
-}
+} //namespace yael::network

@@ -4,19 +4,17 @@
 
 #include <glog/logging.h>
 
-namespace yael
-{
-namespace network
+namespace yael::network
 {
 
-TlsSocket::TlsSocket(MessageMode mode, const std::string &key_path, const std::string &cert_path, size_t max_send_queue_size)
-    : TcpSocket(mode, max_send_queue_size), m_key_path(key_path), m_cert_path(cert_path)
+TlsSocket::TlsSocket(MessageMode mode, std::string key_path, std::string cert_path, size_t max_send_queue_size)
+    : TcpSocket(mode, max_send_queue_size), m_key_path(std::move(key_path)), m_cert_path(std::move(cert_path))
 {
     m_state = State::Unknown;
 }
 
-TlsSocket::TlsSocket(MessageMode mode, int32_t fd, const std::string &key_path, const std::string &cert_path, size_t max_send_queue_size)
-    : TcpSocket(mode, fd, max_send_queue_size), m_key_path(key_path), m_cert_path(cert_path)
+TlsSocket::TlsSocket(MessageMode mode, int32_t fd, std::string key_path, std::string cert_path, size_t max_send_queue_size)
+    : TcpSocket(mode, fd, max_send_queue_size), m_key_path(std::move(key_path)), m_cert_path(std::move(cert_path))
 {
     m_state = State::Setup;
     m_tls_context = std::make_unique<TlsServer>(*this, key_path, cert_path);
@@ -134,5 +132,4 @@ void TlsSocket::pull_messages()
     pull_messages();
 }
 
-}
-}
+} // namespace yael::network

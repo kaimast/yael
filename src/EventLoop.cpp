@@ -72,7 +72,7 @@ EventLoop::~EventLoop()
 
 EventLoop* EventLoop::m_instance = nullptr;
 
-void EventLoop::initialize(int32_t num_threads) 
+void EventLoop::initialize(int32_t num_threads) noexcept
 {
     if(m_instance != nullptr)
     {
@@ -99,7 +99,7 @@ void EventLoop::destroy()
     m_instance = nullptr;
 }
 
-void EventLoop::stop()
+void EventLoop::stop() noexcept
 {
     if(!m_okay)
     {
@@ -198,9 +198,9 @@ std::pair<EventListenerPtr*, EventLoop::EventType> EventLoop::update()
         EventType type;
         auto flags = events[0].events;
 
-        bool has_read = (flags & EPOLLIN) != 0u;
-        bool has_write = (flags & EPOLLOUT) != 0u;
-        bool has_error = (flags & EPOLLERR) != 0u;
+        bool has_read = (flags & EPOLLIN) != 0U;
+        bool has_write = (flags & EPOLLOUT) != 0U;
+        bool has_error = (flags & EPOLLERR) != 0U;
 
         if(has_read && has_write)
         {
@@ -228,6 +228,7 @@ std::pair<EventListenerPtr*, EventLoop::EventType> EventLoop::update()
 }
 
 void EventLoop::register_event_listener(EventListenerPtr listener)
+ noexcept
 {
     std::unique_lock lock(m_event_listeners_mutex);
 
@@ -253,7 +254,7 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
 
     if(fileno <= 0)
     {
-        throw std::runtime_error("Not a valid socket");
+        LOG(FATAL) << "Failed to register event listener: Not a valid socket";
     }
 
     auto flags = get_flags(listener->mode());
@@ -276,6 +277,7 @@ void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t 
 }
 
 void EventLoop::notify_listener_mode_change(EventListenerPtr listener)
+    noexcept
 {
     auto flags = get_flags(listener->mode());
     EventListenerPtr *ptr = nullptr;
@@ -297,7 +299,7 @@ void EventLoop::notify_listener_mode_change(EventListenerPtr listener)
     register_socket(listener->get_fileno(), ptr, flags, true);
 }
 
-void EventLoop::unregister_event_listener(EventListenerPtr listener)
+void EventLoop::unregister_event_listener(EventListenerPtr listener) noexcept
 {
     std::unique_lock lock(m_event_listeners_mutex);
 
@@ -381,7 +383,7 @@ void EventLoop::thread_loop()
     }
 }
 
-void EventLoop::run()
+void EventLoop::run() noexcept
 {
     int32_t num_threads = m_num_threads;
 
@@ -391,7 +393,7 @@ void EventLoop::run()
 
         if(num_threads <= 0)
         {
-            throw std::runtime_error("Could not detect number of hardware threads supported!");
+            LOG(FATAL) << "Could not detect number of hardware threads supported!";
         }
     }
 
@@ -401,7 +403,7 @@ void EventLoop::run()
     }
 }
 
-void EventLoop::wait()
+void EventLoop::wait() noexcept
 {
     for(auto &t: m_threads)
     {

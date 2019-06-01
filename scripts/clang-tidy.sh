@@ -1,7 +1,7 @@
 #! /bin/bash
 
-# Pick any flags you like here
-CHECKS='-hicpp-*,-readability-implicit-bool-conversion,-cppcoreguidelines-*,-clang-diagnostic*,-llvm-*,-bugprone-*,-modernize-*,-misc-*'
+# Need to disable a bunch of tests because we access the C socket APIs
+CHECKS='hicpp-*,bugprone-*,modernize-*,misc-*,-modernize-avoid-c-arrays,-hicpp-no-array-decay,-hicpp-avoid-c-arrays,-hicpp-member-init,-hicpp-vararg,-hicpp-signed-bitwise'
 
 BIN=$1 && shift
 PROJECT_ROOT=$1 && shift

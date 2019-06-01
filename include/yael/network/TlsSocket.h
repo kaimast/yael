@@ -4,9 +4,7 @@
 #include "Socket.h"
 #include "TcpSocket.h"
 
-namespace yael
-{
-namespace network
+namespace yael::network
 {
 
 class TlsContext;
@@ -19,7 +17,7 @@ public:
      *
      * You only need to specify key and certificate for the server
      */
-    TlsSocket(MessageMode mode, const std::string &key_path = "", const std::string &cert_path = "", size_t max_send_queue_size = TcpSocket::DEFAULT_MAX_SEND_QUEUE_SIZE);
+    TlsSocket(MessageMode mode, std::string key_path = "", std::string cert_path = "", size_t max_send_queue_size = TcpSocket::DEFAULT_MAX_SEND_QUEUE_SIZE);
 
     ~TlsSocket();
 
@@ -45,7 +43,7 @@ public:
 protected:
     //! Construct as a child socket
     //! Is only called by Socket::accept
-    TlsSocket(MessageMode mode, int32_t fd, const std::string &key_path, const std::string &cert_path, size_t max_send_queue_size);
+    TlsSocket(MessageMode mode, int32_t fd, std::string key_path, std::string cert_path, size_t max_send_queue_size);
 
 private:
     void pull_messages() override;
@@ -71,12 +69,11 @@ private:
     buffer_t m_buffer;
 
     State m_state;
-    MessageMode m_message_mode;
 };
 
 inline bool TlsSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len)
 {
     return send(data.get(), len);
 }
-}
-}
+
+} // namespace yael::network

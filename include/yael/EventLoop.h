@@ -29,7 +29,7 @@ public:
      *
      * @note this may only be called by at most one thread
      */
-    void wait();
+    void wait() noexcept;
 
     template<typename T, typename... Args>
     std::shared_ptr<T> allocate_event_listener(Args&&... args)
@@ -47,18 +47,18 @@ public:
         return l;
     }
 
-    void register_event_listener(EventListenerPtr listener);
+    void register_event_listener(EventListenerPtr listener) noexcept;
 
     /**
      * Shut the event loop down. This will stop all active event listeners
      * Note that this must be called from outside an event listener to avoid a deadlock!
      */
-    void stop();
+    void stop() noexcept;
 
     /**
      * Is the event loop running and not about to be shut down?
      */
-    bool is_okay() const;
+    bool is_okay() const noexcept;
 
     /**
      * @brief get the instance of the singleton
@@ -70,9 +70,8 @@ public:
      * @brief Initializes the event loop
      * @param num_threads
      *		amount of threads. By default (-1) it will estimate based on CPU cores avaiable
-     * @throws runtime_error if already initialized
      */
-    static void initialize(int32_t num_threads = -1);
+    static void initialize(int32_t num_threads = -1) noexcept;
 
     /**
      * @brief destroys the event loop instance. it is safe to call this multiple times.
@@ -85,10 +84,10 @@ public:
      */
     uint64_t get_time() const;
 
-    void notify_listener_mode_change(EventListenerPtr listener);
-    void unregister_event_listener(EventListenerPtr listener);
+    void notify_listener_mode_change(EventListenerPtr listener) noexcept;
+    void unregister_event_listener(EventListenerPtr listener) noexcept;
 
-    static bool is_initialized() 
+    static bool is_initialized() noexcept
     {
         return m_instance != nullptr;
     }
@@ -97,7 +96,7 @@ private:
     EventLoop(int32_t num_threads);
     ~EventLoop();
 
-    void run();
+    void run() noexcept;
     
     enum EventType
     {
@@ -132,7 +131,6 @@ private:
     const int32_t m_num_threads;
 };
 
-
 inline EventLoop& EventLoop::get_instance()
 {
     if(!m_instance)
@@ -143,7 +141,7 @@ inline EventLoop& EventLoop::get_instance()
     return *m_instance;
 }
 
-inline bool EventLoop::is_okay() const
+inline bool EventLoop::is_okay() const noexcept
 {
     return m_okay;
 }
