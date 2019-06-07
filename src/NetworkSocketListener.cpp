@@ -160,12 +160,12 @@ void NetworkSocketListener::send(const uint8_t *data, size_t length, bool blocki
         } catch(const network::send_queue_full&) {
             if(blocking)
             {
-                LOG(WARNING) << "Send queue is full. Thread is blocking...";
+                LOG(WARNING) << "Send queue to " << m_socket->get_remote_address() << " is full. Thread is blocking...";
                 m_socket->wait_send_queue_empty();
             }
             else
             {
-                LOG(ERROR) << "Failed to send data: send queue is full";
+                LOG(ERROR) << "Failed to send data to " << m_socket->get_remote_address() << ": send queue is full";
                 has_more = false;
                 close_socket();
                 break;
