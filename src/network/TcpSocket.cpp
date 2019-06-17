@@ -358,6 +358,12 @@ bool TcpSocket::close(bool fast)
         
         //no-op
     }
+
+    // threads might wait for send queue to be empty
+    {
+        std::unique_lock lock(m_send_mutex);
+        m_send_queue_cond.notify_all();
+    }
     
     return true;
 }
@@ -497,7 +503,7 @@ void TcpSocket::wait_send_queue_empty()
 {
     std::unique_lock lock(m_send_mutex);
 
-    while(m_send_queue_size > 0)
+    while(m_send_queue_size > 0 && is_valid())
     {
         m_send_queue_cond.wait(lock);
     }
@@ -519,7 +525,7 @@ bool TcpSocket::do_send()
 
         if(!is_valid())
         {
-            throw socket_error("Cannot send data on invalid port");
+            throw socket_error("Socket is closed");
         }
 
         auto &message = *it;

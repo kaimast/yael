@@ -86,7 +86,7 @@ void NetworkSocketListener::on_write_ready()
     try {
         has_more = m_socket->do_send();
     } catch(const network::socket_error &e) {
-        LOG(WARNING) << e.what();
+        LOG(WARNING) << "Failed to send data to " << m_socket->get_remote_address() << e.what();
 
         has_more = false;
         close_socket_internal(lock);
@@ -113,12 +113,12 @@ void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t lengt
         } catch(const network::send_queue_full&) {
             if(blocking)
             {
-                LOG(WARNING) << "Send queue is full. Thread is blocking...";
+                LOG(WARNING) << "Send queue to " << m_socket->get_remote_address() << " is full. Thread is blocking...";
                 m_socket->wait_send_queue_empty();
             }
             else
             {
-                LOG(ERROR) << "Failed to send data: send queue is full";
+                LOG(ERROR) << "Failed to send data to " << m_socket->get_remote_address() << ": send queue is full";
                 has_more = false;
                 close_socket();
                 break;
