@@ -79,7 +79,7 @@ bool NetworkSocketListener::is_connected()
 
 void NetworkSocketListener::on_write_ready()
 {
-    std::unique_lock lock(m_mutex);
+    std::unique_lock lock(m_send_mutex);
 
     bool has_more;
 
@@ -89,10 +89,12 @@ void NetworkSocketListener::on_write_ready()
         LOG(WARNING) << "Failed to send data to " << m_socket->get_remote_address() << e.what();
 
         has_more = false;
-        close_socket_internal(lock);
+
+        lock.unlock();
+        close_socket();
     }
 
-    if(!has_more)
+    if(!has_more && is_valid())
     {
         this->set_mode(EventListener::Mode::ReadOnly);
     }
@@ -100,6 +102,8 @@ void NetworkSocketListener::on_write_ready()
 
 void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking)
 {
+    std::unique_lock lock(m_send_mutex);
+
     bool has_more;
 
     while(true) {
@@ -147,6 +151,8 @@ void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t lengt
 
 void NetworkSocketListener::send(const uint8_t *data, size_t length, bool blocking)
 {
+    std::unique_lock lock(m_send_mutex);
+
     bool has_more;
 
     while(true) {

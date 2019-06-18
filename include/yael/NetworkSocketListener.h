@@ -86,6 +86,10 @@ private:
 
     std::mutex m_mutex;
 
+    // Sends might update the mode (Read or ReadWrite) of the socket
+    // This needs to happen atomically
+    std::mutex m_send_mutex;
+
     std::unique_ptr<network::Socket> m_socket;
     SocketType m_socket_type;
     int32_t m_fileno;
