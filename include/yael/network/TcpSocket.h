@@ -7,6 +7,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <tuple>
+#include <atomic>
 #include <memory>
 
 #include "MessageSlicer.h"
@@ -137,7 +138,7 @@ protected:
     bool m_is_ipv6;
 
     //! File descriptor
-    int m_fd;
+    std::atomic<int> m_fd;
 
     //! The address of the connected client (if any)
     //! Will still be valid after close() was called

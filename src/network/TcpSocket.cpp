@@ -182,7 +182,7 @@ uint16_t TcpSocket::port() const
 {
     if(!is_valid())
     {
-        throw socket_error("Cannot get port of non-existant socket");
+        throw socket_error("Cannot get port of non-existent socket");
     }
 
     return m_port;
@@ -559,9 +559,11 @@ bool TcpSocket::do_send()
                     return true;
                     break;
                 case EPIPE:
+                    lock.unlock();
                     close(true);
                     return false;
                 default:
+                    lock.unlock();
                     close(true);
                     throw socket_error(strerror(errno));
                 }
