@@ -159,15 +159,22 @@ void NetworkSocketListener::send(const uint8_t *data, size_t length, bool blocki
         try {
             has_more = m_socket->send(data, length);
             break;
-        } catch(const network::socket_error &e) {
+        }
+        catch(const network::socket_error &e)
+        {
             LOG(ERROR) << e.what();
             has_more = false;
             break;
-        } catch(const network::send_queue_full&) {
+        }
+        catch(const network::send_queue_full&)
+        {
             if(blocking)
             {
                 LOG(WARNING) << "Send queue to " << m_socket->get_remote_address() << " is full. Thread is blocking...";
+
+                lock.unlock();
                 m_socket->wait_send_queue_empty();
+                lock.lock();
             }
             else
             {
