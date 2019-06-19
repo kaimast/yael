@@ -480,6 +480,11 @@ bool TcpSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len)
         throw socket_error("Message size has to be > 0");
     }
 
+    if(!is_valid())
+    {
+        throw socket_error("Socket is closed");
+    }
+
     m_slicer->prepare_message(data, len);
 
     auto msg_out = message_out_internal_t(std::move(data), len);
