@@ -86,7 +86,7 @@ void NetworkSocketListener::on_write_ready()
     try {
         has_more = m_socket->do_send();
     } catch(const network::socket_error &e) {
-        LOG(WARNING) << "Failed to send data to " << m_socket->get_remote_address() << e.what();
+        LOG(WARNING) << "Failed to send data to " << m_socket->get_remote_address() << ": " << e.what();
 
         has_more = false;
 
@@ -111,7 +111,7 @@ void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t lengt
             has_more = m_socket->send(std::move(data), length);
             break;
         } catch(const network::socket_error &e) {
-            LOG(ERROR) << e.what();
+            LOG(WARNING) << "Failed to send data to " << m_socket->get_remote_address() << ": " << e.what();
             has_more = false;
             break;
         } catch(const network::send_queue_full&) {
@@ -162,7 +162,7 @@ void NetworkSocketListener::send(const uint8_t *data, size_t length, bool blocki
         }
         catch(const network::socket_error &e)
         {
-            LOG(ERROR) << e.what();
+            LOG(ERROR) << "Failed to send data: " << e.what();
             has_more = false;
             break;
         }
