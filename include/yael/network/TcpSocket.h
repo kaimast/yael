@@ -52,8 +52,8 @@ public:
         return is_connected();
     }
 
-    bool send(const uint8_t *data, uint32_t len) override __attribute__((warn_unused_result));
-    bool send(std::unique_ptr<uint8_t[]> &&data, uint32_t len) override __attribute__((warn_unused_result));
+    bool send(const uint8_t *data, uint32_t len, bool async = false) override __attribute__((warn_unused_result));
+    bool send(std::unique_ptr<uint8_t[]> &&data, uint32_t len, bool async = false) override __attribute__((warn_unused_result));
 
     bool do_send() override __attribute__((warn_unused_result));
 
@@ -157,9 +157,12 @@ private:
         Unknown
     };
 
-    std::mutex m_send_mutex;
+    std::mutex m_send_queue_mutex;
     std::condition_variable m_send_queue_cond;
     std::vector<message_out_internal_t> m_send_queue;
+
+    std::mutex m_send_mutex;
+    std::optional<message_out_internal_t> m_current_message;
 
     State m_state = State::Unknown;
 
@@ -183,12 +186,12 @@ inline bool TcpSocket::is_listening() const
     return m_state == State::Listening;
 }
 
-inline bool TcpSocket::send(const uint8_t *data, uint32_t len)
+inline bool TcpSocket::send(const uint8_t *data, uint32_t len, bool async)
 {
     auto cpy = std::make_unique<uint8_t[]>(len); 
     memcpy(cpy.get(), data, len);
 
-    return send(std::move(cpy), len);
+    return send(std::move(cpy), len, async);
 }
 
 }

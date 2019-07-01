@@ -88,7 +88,7 @@ bool TlsSocket::close(bool fast)
     return TcpSocket::close(fast);
 }
 
-bool TlsSocket::send(const uint8_t *data, uint32_t length)
+bool TlsSocket::send(const uint8_t *data, uint32_t length, bool async)
 {
     if(m_state != State::Connected)
     {
@@ -103,7 +103,14 @@ bool TlsSocket::send(const uint8_t *data, uint32_t length)
         return false;
     }
 
-    return do_send();
+    if(async)
+    {
+        return true;
+    }
+    else
+    {
+        return do_send();
+    }
 }
 
 bool TlsSocket::do_send()

@@ -100,15 +100,20 @@ void NetworkSocketListener::on_write_ready()
     }
 }
 
-void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking)
+void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking, bool async)
 {
-    std::unique_lock lock(m_send_mutex);
+    // in async mode we will always change the mode to readwrite
+    // worst case this adds one additional wakeup
+    if(!async)
+    {
+        m_send_mutex.lock();
+    }
 
     bool has_more;
 
     while(true) {
         try {
-            has_more = m_socket->send(std::move(data), length);
+            has_more = m_socket->send(std::move(data), length, async);
             break;
         } catch(const network::socket_error &e) {
             LOG(WARNING) << "Failed to send data to " << m_socket->get_remote_address() << ": " << e.what();
@@ -147,9 +152,14 @@ void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t lengt
         auto &el = EventLoop::get_instance();
         el.unregister_event_listener(shared_from_this());
     }
+
+    if(!async)
+    {
+        m_send_mutex.unlock();
+    }
 }
 
-void NetworkSocketListener::send(const uint8_t *data, size_t length, bool blocking)
+void NetworkSocketListener::send(const uint8_t *data, size_t length, bool blocking, bool async)
 {
     std::unique_lock lock(m_send_mutex);
 
@@ -157,7 +167,7 @@ void NetworkSocketListener::send(const uint8_t *data, size_t length, bool blocki
 
     while(true) {
         try {
-            has_more = m_socket->send(data, length);
+            has_more = m_socket->send(data, length, async);
             break;
         }
         catch(const network::socket_error &e)

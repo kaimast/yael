@@ -361,7 +361,7 @@ bool TcpSocket::close(bool fast)
 
     // threads might wait for send queue to be empty
     {
-        std::unique_lock lock(m_send_mutex);
+        std::unique_lock lock(m_send_queue_mutex);
         m_send_queue_cond.notify_all();
     }
     
@@ -473,7 +473,7 @@ std::optional<TcpSocket::message_in_t> TcpSocket::receive()
     }
 }
 
-bool TcpSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len)
+bool TcpSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len, bool async)
 {
     if(len <= 0)
     {
@@ -490,7 +490,7 @@ bool TcpSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len)
     auto msg_out = message_out_internal_t(std::move(data), len);
 
     {
-        std::unique_lock lock(m_send_mutex);
+        std::unique_lock lock(m_send_queue_mutex);
 
         if(m_send_queue_size >= m_max_send_queue_size)
         {
@@ -501,12 +501,19 @@ bool TcpSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len)
         m_send_queue.emplace_back(std::move(msg_out));
     }
 
-    return do_send();
+    if(async)
+    {
+        return true;
+    }
+    else
+    {
+        return do_send();
+    }
 }
 
 void TcpSocket::wait_send_queue_empty()
 {
-    std::unique_lock lock(m_send_mutex);
+    std::unique_lock lock(m_send_queue_mutex);
 
     while(m_send_queue_size > 0 && is_valid())
     {
@@ -516,16 +523,29 @@ void TcpSocket::wait_send_queue_empty()
 
 bool TcpSocket::do_send()
 {
-    std::unique_lock lock(m_send_mutex);
-    
+    std::unique_lock send_lock(m_send_mutex);
+
     while(true)
     {
-        auto it = m_send_queue.begin();
-        
-        if(it == m_send_queue.end())
+        // Release the send queue mutex ASAP
+        // this way other threads can queue up messages while we write to the socket
+        if(!m_current_message)
         {
-            // we sent everything!
-            return false;
+            std::unique_lock send_queue_lock(m_send_queue_mutex);
+     
+            auto it = m_send_queue.begin();
+            
+            if(it == m_send_queue.end())
+            {
+                // we sent everything!
+                return false;
+            }
+
+            m_current_message = std::move(*it);
+
+            m_send_queue_size -= m_current_message->length;
+            m_send_queue_cond.notify_all();
+            m_send_queue.erase(it);
         }
 
         if(!is_valid())
@@ -533,7 +553,7 @@ bool TcpSocket::do_send()
             throw socket_error("Socket is closed");
         }
 
-        auto &message = *it;
+        auto &message = *m_current_message;
         
         const uint32_t length = message.length;
         const uint8_t *rdata = message.data.get();
@@ -559,25 +579,22 @@ bool TcpSocket::do_send()
                 switch(e)
                 {
                 case EAGAIN:
-                case ECONNRESET:
                     // we did not finish sending
                     return true;
                     break;
+                case ECONNRESET:
                 case EPIPE:
-                    lock.unlock();
                     close(true);
                     return false;
                 default:
-                    lock.unlock();
                     close(true);
                     throw socket_error(strerror(errno));
                 }
             }
         }
 
-        m_send_queue_size -= message.length;
-        m_send_queue.erase(it);
-        m_send_queue_cond.notify_all();
+        // End of message
+        m_current_message = nullopt;
     }
 }
 

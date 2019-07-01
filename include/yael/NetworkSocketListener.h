@@ -54,9 +54,8 @@ public:
         return m_socket && m_socket->has_messages();
     }
 
-    void send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking = false);
-
-    void send(const uint8_t *data, size_t length, bool blocking = false);
+    void send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking = false, bool async = false);
+    void send(const uint8_t *data, size_t length, bool blocking = false, bool async = false);
 
     virtual void close_socket() override;
 

@@ -33,8 +33,8 @@ public:
     
     bool wait_connection_established() override;
 
-    bool send(const uint8_t *data, uint32_t len) override __attribute__((warn_unused_result));
-    bool send(std::unique_ptr<uint8_t[]> &&data, uint32_t len) override __attribute__((warn_unused_result));
+    bool send(const uint8_t *data, uint32_t len, bool async = false) override __attribute__((warn_unused_result));
+    bool send(std::unique_ptr<uint8_t[]> &&data, uint32_t len, bool async = false) override __attribute__((warn_unused_result));
 
     bool do_send() override  __attribute__((warn_unused_result));
 
@@ -71,9 +71,9 @@ private:
     State m_state;
 };
 
-inline bool TlsSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len)
+inline bool TlsSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len, bool async)
 {
-    return send(data.get(), len);
+    return send(data.get(), len, async);
 }
 
 } // namespace yael::network

@@ -103,25 +103,27 @@ void DelayedNetworkSocketListener::close_socket()
     NetworkSocketListener::close_socket();
 }
 
-void DelayedNetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking)
+void DelayedNetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking, bool async)
 {
     if(m_delay == 0)
     {
         // default behaviour if no artificial delay specified
-        return NetworkSocketListener::send(std::move(data), length, blocking);
+        return NetworkSocketListener::send(std::move(data), length, blocking, async);
     }
 
+    // this will always be async
     m_sender->schedule(std::move(data), length, m_delay, blocking);
 }
 
-void DelayedNetworkSocketListener::send(const uint8_t *data, size_t length, bool blocking)
+void DelayedNetworkSocketListener::send(const uint8_t *data, size_t length, bool blocking, bool async)
 {
     if(m_delay == 0)
     {
         // default behaviour if no artificial delay specified
-        return NetworkSocketListener::send(data, length, blocking);
+        return NetworkSocketListener::send(data, length, blocking, async);
     }
 
+    // this will always be async
     m_sender->schedule(data, length, m_delay, blocking);
 }
 

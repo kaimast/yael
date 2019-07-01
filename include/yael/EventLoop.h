@@ -124,6 +124,8 @@ private:
     std::shared_mutex m_event_listeners_mutex;
     std::condition_variable_any m_event_listeners_cond;
 
+    std::mutex m_epoll_register_mutex;
+
     std::unordered_map<int32_t, EventListenerPtr*> m_event_listeners;
 
     const int32_t m_epoll_fd;

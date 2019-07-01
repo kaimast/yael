@@ -17,17 +17,14 @@ const uint32_t BASE_EPOLL_FLAGS = EPOLLERR | EPOLLRDHUP | EPOLLONESHOT;
 
 inline uint32_t get_flags(EventListener::Mode mode)
 {
-    uint32_t flags;
     if(mode == EventListener::Mode::ReadOnly)
     {
-        flags = EPOLLIN | BASE_EPOLL_FLAGS;
+        return EPOLLIN | BASE_EPOLL_FLAGS;
     }
     else
     {
-        flags = EPOLLIN | EPOLLOUT | BASE_EPOLL_FLAGS;
+        return EPOLLIN | EPOLLOUT | BASE_EPOLL_FLAGS;
     }
-
-    return flags;
 }
 
 inline void increment_semaphore(int32_t fd)
@@ -188,7 +185,7 @@ std::pair<EventListenerPtr*, EventLoop::EventType> EventLoop::update()
         }
         else
         {
-            // Event loop was terminated; wakeup next thrad
+            // Event loop was terminated; wake up next thread
             increment_semaphore(m_event_semaphore);
             return {nullptr, EventType::None};
         }
@@ -257,6 +254,7 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
         LOG(FATAL) << "Failed to register event listener: Not a valid socket";
     }
 
+    std::unique_lock epoll_register_lock(m_epoll_register_mutex);
     auto flags = get_flags(listener->mode());
     register_socket(fileno, ptr, flags);
 }
@@ -264,7 +262,7 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
 void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t flags, bool modify)
 {
     struct epoll_event ev;
-    ev.events = flags; 
+    ev.events = flags;
     ev.data.ptr = ptr;
 
     auto op = modify ? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
@@ -296,6 +294,7 @@ void EventLoop::notify_listener_mode_change(EventListenerPtr listener)
         ptr = it->second;
     }
 
+    std::unique_lock epoll_register_lock(m_epoll_register_mutex);
     register_socket(listener->get_fileno(), ptr, flags, true);
 }
 
@@ -362,18 +361,10 @@ void EventLoop::thread_loop()
             LOG(FATAL) << "invalid event type!";
         }
 
-        uint32_t flags;
-        if(listener->mode() == EventListener::Mode::ReadOnly)
-        {
-            flags = EPOLLIN | BASE_EPOLL_FLAGS;
-        }
-        else
-        {
-            flags = EPOLLIN | EPOLLOUT | BASE_EPOLL_FLAGS;
-        }
-
         if(listener->is_valid())
         {
+            std::unique_lock epoll_register_lock(m_epoll_register_mutex);
+            auto flags = get_flags(listener->mode());
             register_socket(listener->get_fileno(), ptr, flags, true);
         }
         else

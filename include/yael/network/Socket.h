@@ -135,7 +135,11 @@ public:
      */
     virtual bool close(bool fast = false) = 0;
 
-    virtual bool send(const uint8_t *data, uint32_t len) __attribute__((warn_unused_result)) = 0;
+    /** 
+     * Returns true if there is more data to send
+     * In this case you need to invoke do_send() when the socket is writable
+     */
+    virtual bool send(const uint8_t *data, uint32_t len, bool async = false) __attribute__((warn_unused_result)) = 0;
 
     virtual bool do_send() __attribute__((warn_unused_result)) = 0;
 
@@ -144,8 +148,8 @@ public:
     virtual void wait_send_queue_empty() = 0;
 
     //! Send either raw data or string
-    //! This version will take overship over the area pointed to by data
-    virtual bool send(std::unique_ptr<uint8_t[]> &&data, const uint32_t length) __attribute__((warn_unused_result)) = 0;
+    //! This version will take ownership over the area pointed to by data
+    virtual bool send(std::unique_ptr<uint8_t[]> &&data, const uint32_t length, bool async = false) __attribute__((warn_unused_result)) = 0;
 
     /**
      * Either the listening port or the connection port

@@ -81,13 +81,11 @@ Peer::Peer(const std::string &host, uint16_t port, uint32_t delay)
     }
 
     set_socket(std::unique_ptr<network::Socket>{sock}, SocketType::Connection);
-    LOG(INFO) << "connected to " << host << ":" << port;
 }
 
 Peer::Peer(std::unique_ptr<yael::network::Socket> &&s, uint32_t delay)
     : yael::DelayedNetworkSocketListener(delay, std::forward<std::unique_ptr<yael::network::Socket>>(s), yael::SocketType::Connection)
 {
-    LOG(INFO) << "new peer connected";
 }
 
 void Peer::send(const std::string &msg)
@@ -96,13 +94,12 @@ void Peer::send(const std::string &msg)
     uint8_t *data = new uint8_t[length];
     memcpy(data, msg.c_str(), length);
 
-    DelayedNetworkSocketListener::send(data, length);
+    DelayedNetworkSocketListener::send(data, length, false, true);
 }
 
 void Peer::on_network_message(yael::network::Socket::message_in_t &msg)
 {
     std::string message = to_string(msg);
-    LOG(INFO) << "got message: " << message;
 
     if (message == "ping")
     {
@@ -164,12 +161,12 @@ void do_connect(int argc, char** argv)
 
     const std::string &host = argv[2];
     const uint16_t port = std::atoi(argv[3]);
-    const int num_children = std::atoi(argv[4]);
+    const size_t num_children = std::atoi(argv[4]);
     const uint32_t delay = std::atoi(argv[5]);
 
     auto start = std::chrono::steady_clock::now();
 
-    for (int i = 0; i < num_children; ++i)
+    for(size_t i = 0; i < num_children; ++i)
     {
         pid_t pid = fork();
         if (pid < 0)
@@ -185,7 +182,7 @@ void do_connect(int argc, char** argv)
     }
 
     bool ok = true;
-    for (int i = 0; i < num_children; ++i)
+    for(size_t i = 0; i < num_children; ++i)
     {
         int status;
         pid_t pid = wait(&status);
