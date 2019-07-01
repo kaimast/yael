@@ -22,16 +22,16 @@ killall churn-test
 
 ## Many messages test
 # Without delay
-./multi-client-test listen 14444 &
+./message-test listen 14444 &
 sleep 1
-./multi-client-test connect localhost 14444 50 0
-killall multi-client-te
+./message-test connect localhost 14444 50 0
+killall message-test
 
 # Without delay
-./multi-client-test listen 14444 &
+./message-test listen 14444 &
 sleep 1
-./multi-client-test connect localhost 14444 50 100
-killall multi-client-te
+./message-test connect localhost 14444 50 100
+killall message-test
 
 
 
