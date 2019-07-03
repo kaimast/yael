@@ -217,7 +217,7 @@ std::pair<EventListenerPtr*, EventLoop::EventType> EventLoop::update()
         }
         else 
         {
-            LOG(FATAL) << "invalid event flag";
+            LOG(FATAL) << "Invalid event flag";
         }
 
         return {reinterpret_cast<EventListenerPtr*>(ptr), type};
@@ -356,9 +356,13 @@ void EventLoop::thread_loop()
         {
             listener->on_write_ready();
         }
+        else if(type == EventType::Error)
+        {
+            listener->on_error();
+        }
         else
         {
-            LOG(FATAL) << "invalid event type!";
+            LOG(FATAL) << "Invalid event type!";
         }
 
         if(listener->is_valid())

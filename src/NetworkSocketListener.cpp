@@ -172,7 +172,7 @@ void NetworkSocketListener::send(const uint8_t *data, size_t length, bool blocki
         }
         catch(const network::socket_error &e)
         {
-            LOG(ERROR) << "Failed to send data: " << e.what();
+            LOG(ERROR) << "Failed to send data to " << m_socket->get_remote_address() << ": " << e.what();
             has_more = false;
             break;
         }
