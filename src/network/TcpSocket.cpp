@@ -334,8 +334,22 @@ bool TcpSocket::close(bool fast)
     if(m_state == State::Connected && !fast)
     {
         m_state = State::Shutdown;
-        int i = ::shutdown(m_fd, SHUT_RD | SHUT_WR);
-        (void)i; //unused
+        int i = ::shutdown(m_fd, SHUT_RDWR);
+
+        if(i != 0)
+        {
+            if(errno == ENOTCONN)
+            {
+                // already closed
+                m_fd = -1;
+                m_state = State::Closed;
+                m_slicer->buffer().reset();
+
+                return true;
+            }
+
+            LOG(FATAL) << "Socket shutdown() failed: " << strerror(errno);
+        }
 
         return false;
     }
