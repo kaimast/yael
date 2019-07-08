@@ -117,7 +117,9 @@ void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t lengt
             break;
         } catch(const network::socket_error &e) {
             LOG(WARNING) << "Failed to send data to " << m_socket->get_remote_address() << ": " << e.what();
+
             has_more = false;
+            close_socket();
             break;
         } catch(const network::send_queue_full&) {
             if(blocking)
@@ -174,6 +176,7 @@ void NetworkSocketListener::send(const uint8_t *data, size_t length, bool blocki
         {
             LOG(ERROR) << "Failed to send data to " << m_socket->get_remote_address() << ": " << e.what();
             has_more = false;
+            close_socket();
             break;
         }
         catch(const network::send_queue_full&)
