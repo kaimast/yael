@@ -102,11 +102,13 @@ void NetworkSocketListener::on_write_ready()
 
 void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking, bool async)
 {
+    std::unique_lock<std::mutex> send_lock;
+
     // in async mode we will always change the mode to readwrite
     // worst case this adds one additional wakeup
     if(!async)
     {
-        m_send_mutex.lock();
+        send_lock = std::unique_lock(m_send_mutex);
     }
 
     bool has_more;
@@ -125,7 +127,17 @@ void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t lengt
             if(blocking)
             {
                 LOG(WARNING) << "Send queue to " << m_socket->get_remote_address() << " is full. Thread is blocking...";
-                m_socket->wait_send_queue_empty();
+
+                if(async)
+                {
+                    m_socket->wait_send_queue_empty();
+                }
+                else
+                {
+                    send_lock.unlock();
+                    m_socket->wait_send_queue_empty();
+                    send_lock.lock();
+                }
             }
             else
             {
@@ -154,18 +166,20 @@ void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t lengt
         auto &el = EventLoop::get_instance();
         el.unregister_event_listener(shared_from_this());
     }
-
-    if(!async)
-    {
-        m_send_mutex.unlock();
-    }
 }
 
 void NetworkSocketListener::send(const uint8_t *data, size_t length, bool blocking, bool async)
 {
-    std::unique_lock lock(m_send_mutex);
+    std::unique_lock<std::mutex> send_lock;
 
     bool has_more;
+
+    // in async mode we will always change the mode to readwrite
+    // worst case this adds one additional wakeup
+    if(!async)
+    {
+        send_lock = std::unique_lock(m_send_mutex);
+    }
 
     while(true) {
         try {
@@ -185,9 +199,16 @@ void NetworkSocketListener::send(const uint8_t *data, size_t length, bool blocki
             {
                 LOG(WARNING) << "Send queue to " << m_socket->get_remote_address() << " is full. Thread is blocking...";
 
-                lock.unlock();
-                m_socket->wait_send_queue_empty();
-                lock.lock();
+                if(async)
+                {
+                    m_socket->wait_send_queue_empty();
+                }
+                else
+                {
+                    send_lock.unlock();
+                    m_socket->wait_send_queue_empty();
+                    send_lock.lock();
+                }
             }
             else
             {
