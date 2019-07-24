@@ -162,9 +162,7 @@ void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t lengt
     }
     else
     {
-        // Tell event loop connection was lost or terminated
-        auto &el = EventLoop::get_instance();
-        el.unregister_event_listener(shared_from_this());
+        close_socket();
     }
 }
 
@@ -233,9 +231,7 @@ void NetworkSocketListener::send(const uint8_t *data, size_t length, bool blocki
     }
     else
     {
-        // Tell event loop connection was lost or terminated
-        auto &el = EventLoop::get_instance();
-        el.unregister_event_listener(shared_from_this());
+        close_socket();
     }
 }
 
@@ -313,7 +309,7 @@ void NetworkSocketListener::on_read_ready()
         {
             close_socket_internal(lock);
         }
- 
+
         break;
     }
     default:
@@ -324,35 +320,32 @@ void NetworkSocketListener::on_read_ready()
 
 void NetworkSocketListener::close_socket_internal(std::unique_lock<std::mutex> &lock)
 {
-    // make sure we invoke the callback at most once
-    if(m_has_disconnected)
+    bool done = true;
+
+    if(m_socket && m_socket->is_valid())
     {
-        //ignore
-        return;
+        done = m_socket->close();
+        lock.unlock();
     }
 
-    m_has_disconnected = true;
-
-    if(m_socket)
+    if(done && !m_has_disconnected)
     {
-        bool done = m_socket->close();
-        lock.unlock();
+        // make sure we invoke the callback at most once
+        m_has_disconnected = true;
 
-        if(done)
+        if(m_socket_type == SocketType::Connection)
         {
-            if(m_socket_type == SocketType::Connection)
-            {
-                this->on_disconnect();
-            }
-            else if(EventLoop::is_initialized())
-            {
-                try {
-                    auto &el = EventLoop::get_instance();
-                    el.unregister_event_listener(shared_from_this());
-                } catch(const std::runtime_error&) {
-                    // can happen during shutdown
-                    // ignore...
-                }
+            this->on_disconnect();
+        }
+
+        if(EventLoop::is_initialized())
+        {
+            try {
+                auto &el = EventLoop::get_instance();
+                el.unregister_event_listener(shared_from_this());
+            } catch(const std::runtime_error&) {
+                // can happen during shutdown
+                // ignore...
             }
         }
     }

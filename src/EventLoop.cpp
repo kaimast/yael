@@ -163,7 +163,8 @@ std::pair<EventListenerPtr*, EventLoop::EventType> EventLoop::update()
             return {nullptr, EventType::None};
         }
 
-        LOG(FATAL) << "epoll_wait() returned an error: " << strerror(errno);
+        // Let's try to continue here, if possible
+        LOG(ERROR) << "epoll_wait() returned an error: " << strerror(errno) << " (errno=" << errno << ")";
     }
 
     if(nfds > 1)
@@ -302,11 +303,6 @@ void EventLoop::unregister_event_listener(EventListenerPtr listener) noexcept
 {
     std::unique_lock lock(m_event_listeners_mutex);
 
-    if(listener->is_valid())
-    {
-        LOG(FATAL) << "Cannot unregister event listener while still valid";
-    }
-
     auto fileno = listener->get_fileno();
     auto it = m_event_listeners.find(fileno);
 
@@ -370,10 +366,6 @@ void EventLoop::thread_loop()
             std::unique_lock epoll_register_lock(m_epoll_register_mutex);
             auto flags = get_flags(listener->mode());
             register_socket(listener->get_fileno(), ptr, flags, true);
-        }
-        else
-        {
-            unregister_event_listener(listener);
         }
     }
 }
