@@ -102,8 +102,9 @@ void EventLoop::stop() noexcept
     {
         return;//no-op
     }
-    
+
     std::unique_lock lock(m_event_listeners_mutex);
+    m_okay = false;
 
     while(!m_event_listeners.empty())
     {
@@ -123,7 +124,6 @@ void EventLoop::stop() noexcept
         m_event_listeners_cond.wait(lock);
     }
 
-    m_okay = false;
     increment_semaphore(m_event_semaphore);
 }
 
