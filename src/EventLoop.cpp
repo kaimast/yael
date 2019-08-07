@@ -146,7 +146,7 @@ std::pair<EventListenerPtr*, EventLoop::EventType> EventLoop::update()
         nfds = epoll_wait(m_epoll_fd, events, MAX_EVENTS, timeout);
     }
 
-    if(!m_okay && nfds == 0)
+    if(!m_okay && nfds <= 0)
     {
         // Event loop was terminated; wakeup next thread
         increment_semaphore(m_event_semaphore);
