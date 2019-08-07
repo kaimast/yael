@@ -121,16 +121,9 @@ void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t lengt
             {
                 LOG(WARNING) << "Send queue to " << m_socket->get_remote_address() << " is full. Thread is blocking...";
 
-                if(async)
-                {
-                    m_socket->wait_send_queue_empty();
-                }
-                else
-                {
-                    send_lock.unlock();
-                    m_socket->wait_send_queue_empty();
-                    send_lock.lock();
-                }
+                send_lock.unlock();
+                m_socket->wait_send_queue_empty();
+                send_lock.lock();
             }
             else
             {
@@ -183,16 +176,9 @@ void NetworkSocketListener::send(const uint8_t *data, size_t length, bool blocki
             {
                 LOG(WARNING) << "Send queue to " << m_socket->get_remote_address() << " is full. Thread is blocking...";
 
-                if(async)
-                {
-                    m_socket->wait_send_queue_empty();
-                }
-                else
-                {
-                    send_lock.unlock();
-                    m_socket->wait_send_queue_empty();
-                    send_lock.lock();
-                }
+                send_lock.unlock();
+                m_socket->wait_send_queue_empty();
+                send_lock.lock();
             }
             else
             {
