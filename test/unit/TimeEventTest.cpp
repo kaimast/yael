@@ -112,7 +112,7 @@ TEST(TimeEventTest, schedule_three)
 
     EventLoop::destroy();
 
-    EXPECT_EQ(3, hdl->count);
+    EXPECT_EQ(3U, hdl->count);
 }
 
 TEST(TimeEventTest, schedule_three2)
@@ -136,5 +136,5 @@ TEST(TimeEventTest, schedule_three2)
 
     EventLoop::destroy();
 
-    EXPECT_EQ(3, hdl->count);
+    EXPECT_EQ(3U, hdl->count);
 }

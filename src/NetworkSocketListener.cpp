@@ -102,14 +102,7 @@ void NetworkSocketListener::on_write_ready()
 
 void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking, bool async)
 {
-    std::unique_lock<std::mutex> send_lock;
-
-    // in async mode we will always change the mode to readwrite
-    // worst case this adds one additional wakeup
-    if(!async)
-    {
-        send_lock = std::unique_lock(m_send_mutex);
-    }
+    std::unique_lock send_lock(m_send_mutex);
 
     bool has_more;
 
@@ -168,16 +161,9 @@ void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t lengt
 
 void NetworkSocketListener::send(const uint8_t *data, size_t length, bool blocking, bool async)
 {
-    std::unique_lock<std::mutex> send_lock;
+    std::unique_lock send_lock(m_send_mutex);
 
     bool has_more;
-
-    // in async mode we will always change the mode to readwrite
-    // worst case this adds one additional wakeup
-    if(!async)
-    {
-        send_lock = std::unique_lock(m_send_mutex);
-    }
 
     while(true) {
         try {
