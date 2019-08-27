@@ -64,12 +64,7 @@ public:
         return *m_socket;
     }
 
-    EventListener::Mode mode() override
-    {
-        // send queue decides the mode of the listener
-        std::unique_lock lock(m_send_mutex);
-        return m_mode;
-    }
+    void re_register(bool first_time) override;
 
 protected:
     /**

@@ -7,7 +7,6 @@ namespace yael
 {
 
 TimeEventListener::TimeEventListener()
-    : m_mode(EventListener::Mode::ReadOnly)
 {
     constexpr int32_t flags = 0;
     m_fileno = m_fd = timerfd_create(CLOCK_REALTIME, flags);
@@ -40,6 +39,17 @@ void TimeEventListener::on_error()
 {
     LOG(WARNING) << "Got error; closing socket";
     close_socket();
+}
+
+void TimeEventListener::re_register(bool first_time)
+{
+    if(!is_valid())
+    {
+        return;
+    }
+
+    auto &el = EventLoop::get_instance();
+    el.notify_listener_mode_change(shared_from_this(), EventListener::Mode::ReadOnly, first_time);
 }
 
 void TimeEventListener::on_read_ready()
@@ -192,19 +202,6 @@ bool TimeEventListener::internal_schedule(uint64_t delay)
     }
 
     return true;
-}
-
-void TimeEventListener::set_mode(EventListener::Mode mode)
-{
-    if(mode == m_mode)
-    {
-        return;
-    }
-
-    m_mode = mode;
-
-    auto &el = EventLoop::get_instance();
-    el.notify_listener_mode_change(shared_from_this(), mode);
 }
 
 }

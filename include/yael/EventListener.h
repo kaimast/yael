@@ -36,7 +36,8 @@ public:
      */
     virtual int32_t get_fileno() const = 0;
 
-    virtual Mode mode() = 0;
+    /// Event(s) have been handled. Re-register if desired
+    virtual void re_register(bool first_time) = 0;
 
     virtual void close_socket() = 0;
 

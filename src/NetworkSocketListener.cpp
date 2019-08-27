@@ -3,9 +3,7 @@
 
 using namespace yael;
 
-NetworkSocketListener::NetworkSocketListener()
-{
-}
+NetworkSocketListener::NetworkSocketListener() = default;
 
 NetworkSocketListener::NetworkSocketListener(std::unique_ptr<network::Socket> &&socket, SocketType type)
 {
@@ -32,6 +30,21 @@ std::unique_ptr<network::Socket> NetworkSocketListener::release_socket()
     return sock;
 }
 
+void NetworkSocketListener::re_register(bool first_time)
+{
+    // send queue decides the mode of the listener
+    std::unique_lock lock(m_send_mutex);
+
+    if(!m_socket->is_valid())
+    {
+        // we're done
+        return;
+    }
+
+    auto &el = EventLoop::get_instance();
+    el.notify_listener_mode_change(shared_from_this(), m_mode, first_time);
+}
+
 void NetworkSocketListener::set_mode(EventListener::Mode mode)
 {
     if(mode == m_mode)
@@ -42,7 +55,7 @@ void NetworkSocketListener::set_mode(EventListener::Mode mode)
     m_mode = mode;
 
     auto &el = EventLoop::get_instance();
-    el.notify_listener_mode_change(shared_from_this(), mode);
+    el.notify_listener_mode_change(shared_from_this(), mode, false);
 }
 
 

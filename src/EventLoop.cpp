@@ -251,15 +251,9 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
         }
     }
 
-    auto fileno = listener->get_fileno();
+    lock.unlock();
 
-    if(fileno <= 0)
-    {
-        LOG(FATAL) << "Failed to register event listener: Not a valid socket";
-    }
-
-    auto flags = get_flags(listener->mode());
-    register_socket(fileno, ptr, flags);
+    listener->re_register(true);
 }
 
 void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t flags, bool modify)
@@ -277,7 +271,7 @@ void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t 
     }
 }
 
-void EventLoop::notify_listener_mode_change(EventListenerPtr listener, EventListener::Mode mode)
+void EventLoop::notify_listener_mode_change(EventListenerPtr listener, EventListener::Mode mode, bool first_time)
     noexcept
 {
     auto flags = get_flags(mode);
@@ -297,7 +291,7 @@ void EventLoop::notify_listener_mode_change(EventListenerPtr listener, EventList
         ptr = it->second;
     }
 
-    register_socket(listener->get_fileno(), ptr, flags, true);
+    register_socket(listener->get_fileno(), ptr, flags, !first_time);
 }
 
 void EventLoop::unregister_event_listener(EventListenerPtr listener) noexcept
@@ -362,11 +356,7 @@ void EventLoop::thread_loop()
             LOG(FATAL) << "Invalid event type!";
         }
 
-        if(listener->is_valid())
-        {
-            auto flags = get_flags(listener->mode());
-            register_socket(listener->get_fileno(), ptr, flags, true);
-        }
+        listener->re_register(false);
     }
 }
 

@@ -6,5 +6,4 @@ yael_cpp_files = files(
     'TimeEventListener.cpp',
     'NetworkSocketListener.cpp',
     'DelayedNetworkSocketListener.cpp',
-    'EventListener.cpp',
     'EventLoop.cpp')
