@@ -191,12 +191,10 @@ TEST_P(AsyncSocketTest, send_large_chunk)
     ASSERT_EQ(len, msg->length);
     ASSERT_EQ(0, memcmp(data, msg->data, len));
 
-    ASSERT_EQ(0, m_connection1->socket().send_queue_size());
-    ASSERT_EQ(0, m_connection2->socket().send_queue_size());
+    ASSERT_EQ(0U, m_connection1->socket().send_queue_size());
+    ASSERT_EQ(0U, m_connection2->socket().send_queue_size());
     ASSERT_EQ(Connection::MAX_SEND_QUEUE_SIZE, m_connection1->socket().max_send_queue_size());
     ASSERT_EQ(Connection::MAX_SEND_QUEUE_SIZE, m_connection2->socket().max_send_queue_size());
-
-
 
     delete[] msg->data;
     delete[] data;
