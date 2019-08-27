@@ -15,6 +15,9 @@ constexpr int32_t MAX_EVENTS = 1;
 
 const uint32_t BASE_EPOLL_FLAGS = EPOLLERR | EPOLLRDHUP | EPOLLONESHOT;
 
+// this code assumes epoll is thread-safe
+// see http://lkml.iu.edu/hypermail/linux/kernel/0602.3/1661.html
+
 inline uint32_t get_flags(EventListener::Mode mode)
 {
     if(mode == EventListener::Mode::ReadOnly)
@@ -255,7 +258,6 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
         LOG(FATAL) << "Failed to register event listener: Not a valid socket";
     }
 
-    std::unique_lock epoll_register_lock(m_epoll_register_mutex);
     auto flags = get_flags(listener->mode());
     register_socket(fileno, ptr, flags);
 }
@@ -295,7 +297,6 @@ void EventLoop::notify_listener_mode_change(EventListenerPtr listener)
         ptr = it->second;
     }
 
-    std::unique_lock epoll_register_lock(m_epoll_register_mutex);
     register_socket(listener->get_fileno(), ptr, flags, true);
 }
 
@@ -363,7 +364,6 @@ void EventLoop::thread_loop()
 
         if(listener->is_valid())
         {
-            std::unique_lock epoll_register_lock(m_epoll_register_mutex);
             auto flags = get_flags(listener->mode());
             register_socket(listener->get_fileno(), ptr, flags, true);
         }
