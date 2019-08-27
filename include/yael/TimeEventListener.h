@@ -38,8 +38,16 @@ public:
         return m_fd >= 0;
     }
 
+    EventListener::Mode mode() override
+    {
+        std::unique_lock lock(m_mutex);
+        return m_mode;
+    }
+
 private:
     bool internal_schedule(uint64_t delay);
+
+    void set_mode(EventListener::Mode mode);
 
     int32_t get_fileno() const override final
     {
@@ -55,6 +63,8 @@ private:
 
     std::mutex m_mutex;
     std::vector<uint64_t> m_queued_events;
+
+    EventListener::Mode m_mode;
 };
 
 }

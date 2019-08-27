@@ -64,6 +64,13 @@ public:
         return *m_socket;
     }
 
+    EventListener::Mode mode() override
+    {
+        // send queue decides the mode of the listener
+        std::unique_lock lock(m_send_mutex);
+        return m_mode;
+    }
+
 protected:
     /**
      * @brief Hand a valid socket to the listener
@@ -79,6 +86,8 @@ protected:
 private:
     void close_socket_internal(std::unique_lock<std::mutex> &lock);
 
+    void set_mode(EventListener::Mode mode);
+
     void on_read_ready() override final;
     void on_write_ready() override final;
     void on_error() override final;
@@ -89,11 +98,13 @@ private:
     // This needs to happen atomically
     std::mutex m_send_mutex;
 
-    std::unique_ptr<network::Socket> m_socket;
-    SocketType m_socket_type;
-    int32_t m_fileno;
+    std::unique_ptr<network::Socket> m_socket = nullptr;
+    SocketType m_socket_type = SocketType::None;
+    int32_t m_fileno = 1;
     
     bool m_has_disconnected = false;
+
+    EventListener::Mode m_mode = EventListener::Mode::ReadOnly;
 };
 
 inline void NetworkSocketListener::close_socket()

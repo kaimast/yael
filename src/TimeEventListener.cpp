@@ -7,7 +7,7 @@ namespace yael
 {
 
 TimeEventListener::TimeEventListener()
-    : EventListener(EventListener::Mode::ReadOnly)
+    : m_mode(EventListener::Mode::ReadOnly)
 {
     constexpr int32_t flags = 0;
     m_fileno = m_fd = timerfd_create(CLOCK_REALTIME, flags);
@@ -192,6 +192,19 @@ bool TimeEventListener::internal_schedule(uint64_t delay)
     }
 
     return true;
+}
+
+void TimeEventListener::set_mode(EventListener::Mode mode)
+{
+    if(mode == m_mode)
+    {
+        return;
+    }
+
+    m_mode = mode;
+
+    auto &el = EventLoop::get_instance();
+    el.notify_listener_mode_change(shared_from_this(), mode);
 }
 
 }

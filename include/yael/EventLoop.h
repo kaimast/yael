@@ -84,7 +84,7 @@ public:
      */
     uint64_t get_time() const;
 
-    void notify_listener_mode_change(EventListenerPtr listener) noexcept;
+    void notify_listener_mode_change(EventListenerPtr listener, EventListener::Mode mode) noexcept;
     void unregister_event_listener(EventListenerPtr listener) noexcept;
 
     static bool is_initialized() noexcept

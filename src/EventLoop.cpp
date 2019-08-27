@@ -277,10 +277,10 @@ void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t 
     }
 }
 
-void EventLoop::notify_listener_mode_change(EventListenerPtr listener)
+void EventLoop::notify_listener_mode_change(EventListenerPtr listener, EventListener::Mode mode)
     noexcept
 {
-    auto flags = get_flags(listener->mode());
+    auto flags = get_flags(mode);
     EventListenerPtr *ptr = nullptr;
 
     {

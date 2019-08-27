@@ -4,12 +4,10 @@
 using namespace yael;
 
 NetworkSocketListener::NetworkSocketListener()
-    : EventListener(EventListener::Mode::ReadOnly), m_socket(nullptr), m_fileno(-1)
 {
 }
 
 NetworkSocketListener::NetworkSocketListener(std::unique_ptr<network::Socket> &&socket, SocketType type)
-    : EventListener(EventListener::Mode::ReadOnly), m_socket(nullptr), m_socket_type(SocketType::None), m_fileno(-1)
 {
     if(socket)
     {
@@ -33,6 +31,20 @@ std::unique_ptr<network::Socket> NetworkSocketListener::release_socket()
 
     return sock;
 }
+
+void NetworkSocketListener::set_mode(EventListener::Mode mode)
+{
+    if(mode == m_mode)
+    {
+        return;
+    }
+
+    m_mode = mode;
+
+    auto &el = EventLoop::get_instance();
+    el.notify_listener_mode_change(shared_from_this(), mode);
+}
+
 
 void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type)
 {
@@ -96,7 +108,7 @@ void NetworkSocketListener::on_write_ready()
 
     if(!has_more && is_valid())
     {
-        this->set_mode(EventListener::Mode::ReadOnly);
+        set_mode(EventListener::Mode::ReadOnly);
     }
 }
 

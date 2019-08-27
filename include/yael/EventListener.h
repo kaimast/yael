@@ -36,16 +36,12 @@ public:
      */
     virtual int32_t get_fileno() const = 0;
 
-    Mode mode() const { return m_mode; }
-
-    void set_mode(Mode mode);
+    virtual Mode mode() = 0;
 
     virtual void close_socket() = 0;
 
 protected:
-    EventListener(Mode mode)
-        : m_mode(mode)
-    {}
+    EventListener() = default;
 
 private:
     std::atomic<Mode> m_mode;
