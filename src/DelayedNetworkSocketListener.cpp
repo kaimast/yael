@@ -10,7 +10,12 @@ class DelayedMessageSender: public TimeEventListener
 private:
     struct delayed_message_t
     {
-        std::unique_ptr<uint8_t[]> data;
+        // Only one of these smart pointer is used
+        // unique_ptr is more efficient but shared_ptr allows to avoid memcpy during multicast
+        bool is_shared;
+        std::shared_ptr<uint8_t[]> data_shared;
+        std::unique_ptr<uint8_t[]> data_unique;
+
         size_t length;
         bool blocking;
     };
@@ -32,7 +37,14 @@ public:
         }
         else
         {
-            m_socket->send(std::move(it->data), it->length);
+            if(it->is_shared)
+            {
+                m_socket->send(std::move(it->data_shared), it->length);
+            }
+            else
+            {
+                m_socket->send(std::move(it->data_unique), it->length);
+            }
         }
 
         m_pending_messages.erase(it);
@@ -44,11 +56,19 @@ public:
         TimeEventListener::close_socket();
     }
 
+    void schedule(std::shared_ptr<uint8_t[]> &&data, size_t length, uint32_t delay, bool blocking)
+    {
+        std::unique_lock lock(m_mutex);
+
+        m_pending_messages.emplace_back(delayed_message_t{true, std::move(data), nullptr, length, blocking});
+        TimeEventListener::schedule(delay);
+    }
+
     void schedule(std::unique_ptr<uint8_t[]> &&data, size_t length, uint32_t delay, bool blocking)
     {
         std::unique_lock lock(m_mutex);
 
-        m_pending_messages.emplace_back(delayed_message_t{std::move(data), length, blocking});
+        m_pending_messages.emplace_back(delayed_message_t{false, nullptr, std::move(data), length, blocking});
         TimeEventListener::schedule(delay);
     }
 
@@ -58,7 +78,7 @@ public:
 
         auto copy = std::make_unique<uint8_t[]>(length);
         memcpy(copy.get(), data, length);
-        m_pending_messages.emplace_back(delayed_message_t{std::move(copy), length, blocking});
+        m_pending_messages.emplace_back(delayed_message_t{false, nullptr, std::move(copy), length, blocking});
         TimeEventListener::schedule(delay);
     }
 
@@ -101,6 +121,18 @@ void DelayedNetworkSocketListener::close_socket()
     }
 
     NetworkSocketListener::close_socket();
+}
+
+void DelayedNetworkSocketListener::send(std::shared_ptr<uint8_t[]> &&data, size_t length, bool blocking, bool async)
+{
+    if(m_delay == 0)
+    {
+        // default behaviour if no artificial delay specified
+        return NetworkSocketListener::send(std::move(data), length, blocking, async);
+    }
+
+    // this will always be async
+    m_sender->schedule(std::move(data), length, m_delay, blocking);
 }
 
 void DelayedNetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking, bool async)

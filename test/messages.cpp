@@ -40,10 +40,10 @@ public:
     bool done = false;
 
 protected:
-    void on_network_message(yael::network::Socket::message_in_t &msg) override;
+    void on_network_message(yael::network::message_in_t &msg) override;
 };
 
-std::string to_string(yael::network::Socket::message_in_t &msg)
+std::string to_string(yael::network::message_in_t &msg)
 {
     return std::string(reinterpret_cast<const char*>(msg.data), msg.length);
 }
@@ -97,7 +97,7 @@ void Peer::send(const std::string &msg)
     DelayedNetworkSocketListener::send(data, length, false, true);
 }
 
-void Peer::on_network_message(yael::network::Socket::message_in_t &msg)
+void Peer::on_network_message(yael::network::message_in_t &msg)
 {
     std::string message = to_string(msg);
 

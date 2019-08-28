@@ -53,7 +53,10 @@ public:
     }
 
     bool send(const uint8_t *data, uint32_t len, bool async = false) override __attribute__((warn_unused_result));
-    bool send(std::unique_ptr<uint8_t[]> &&data, uint32_t len, bool async = false) override __attribute__((warn_unused_result));
+
+    bool send(std::unique_ptr<uint8_t[]> data, uint32_t len, bool async = false) override __attribute__((warn_unused_result));
+
+    bool send(std::shared_ptr<uint8_t[]> data, uint32_t len, bool async = false) override __attribute__((warn_unused_result));
 
     bool do_send() override __attribute__((warn_unused_result));
 
@@ -77,32 +80,66 @@ public:
 
     void wait_send_queue_empty() override;
 
+    const MessageSlicer& message_slicer() const override
+    {
+        return *m_slicer;
+    }
+
 protected:
     struct message_out_internal_t
     {
-        message_out_internal_t(std::unique_ptr<uint8_t[]> &&data, uint32_t length)
-            : data(std::move(data)), length(length), sent_pos(0)
+        message_out_internal_t(std::unique_ptr<uint8_t[]> data, uint32_t length_)
+            : length(length_), sent_pos(0), m_is_shared(false), m_data_unique(std::move(data))
+        {
+        }
+
+        message_out_internal_t(std::shared_ptr<uint8_t[]> data, uint32_t length_)
+           : length(length_), sent_pos(0), m_is_shared(true), m_data_shared(std::move(data))
         {
         }
 
         message_out_internal_t(message_out_internal_t &&other)
-            : data(std::move(other.data)), length(other.length), sent_pos(other.sent_pos)
+            : length(other.length), sent_pos(other.sent_pos),
+            m_is_shared(other.m_is_shared),
+            m_data_unique(std::move(other.m_data_unique)),
+            m_data_shared(std::move(other.m_data_shared))
         {
             other.length = other.sent_pos = 0;
         }
 
         void operator=(message_out_internal_t &&other)
         {
-            data = std::move(other.data);
             length = other.length;
             sent_pos = other.sent_pos;
+
+            m_is_shared = other.m_is_shared;
+            m_data_unique = std::move(other.m_data_unique);
+            m_data_shared = std::move(other.m_data_shared);
 
             other.length = other.sent_pos = 0;
         }
 
-        std::unique_ptr<uint8_t[]> data;
+        const uint8_t* data()
+        {
+            if(m_is_shared)
+            {
+                return m_data_shared.get();
+            }
+            else
+            {
+                return m_data_unique.get();
+            }
+        }
+
         msg_len_t length;
-        msg_len_t sent_pos; 
+        msg_len_t sent_pos = 0;
+
+    private:
+        // Only one of these smart pointer is used
+        // unique_ptr is more efficient but shared_ptr allows to avoid memcpy during multicast
+        bool m_is_shared;
+        std::unique_ptr<uint8_t[]> m_data_unique;
+        std::shared_ptr<uint8_t[]> m_data_shared;
     };
         
     //! Construct as a child socket

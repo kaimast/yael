@@ -125,6 +125,58 @@ void NetworkSocketListener::on_write_ready()
     }
 }
 
+void NetworkSocketListener::send(std::shared_ptr<uint8_t[]> &&data, size_t length, bool blocking, bool async)
+{
+    std::unique_lock send_lock(m_send_mutex);
+
+    bool has_more;
+
+    while(true) {
+        try {
+            has_more = m_socket->send(std::move(data), length, async);
+            break;
+        } catch(const network::socket_error &e) {
+            LOG(WARNING) << "Failed to send data to " << m_socket->get_remote_address() << ": " << e.what();
+
+            has_more = false;
+            close_socket();
+            break;
+        } catch(const network::send_queue_full&) {
+            if(blocking)
+            {
+                LOG(WARNING) << "Send queue to " << m_socket->get_remote_address() << " is full. Thread is blocking...";
+
+                send_lock.unlock();
+                m_socket->wait_send_queue_empty();
+                send_lock.lock();
+            }
+            else
+            {
+                LOG(ERROR) << "Failed to send data to " << m_socket->get_remote_address() << ": send queue is full";
+                has_more = false;
+                close_socket();
+                break;
+            }
+        }
+    }
+
+    if(is_valid())
+    {
+        if(has_more)
+        {
+            set_mode(Mode::ReadWrite);
+        }
+        else
+        {
+            set_mode(Mode::ReadOnly);
+        }
+    }
+    else
+    {
+        close_socket();
+    }
+}
+
 void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking, bool async)
 {
     std::unique_lock send_lock(m_send_mutex);

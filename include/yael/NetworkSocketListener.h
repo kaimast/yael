@@ -44,7 +44,7 @@ public:
     void wait_for_connection();
 
     /// Callbacks
-    virtual void on_network_message(network::Socket::message_in_t &msg) { (void)msg; }
+    virtual void on_network_message(network::message_in_t &msg) { (void)msg; }
     virtual void on_new_connection(std::unique_ptr<network::Socket> &&socket) { (void)socket; }
     virtual void on_disconnect() {}
 
@@ -54,6 +54,7 @@ public:
         return m_socket && m_socket->has_messages();
     }
 
+    void send(std::shared_ptr<uint8_t[]> &&data, size_t length, bool blocking = false, bool async = false);
     void send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking = false, bool async = false);
     void send(const uint8_t *data, size_t length, bool blocking = false, bool async = false);
 

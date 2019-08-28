@@ -52,7 +52,7 @@ public:
         ptr = std::unique_ptr<uint8_t[]>(cptr);
     }
 
-    bool get_message(Socket::message_in_t& message) override
+    bool get_message(message_in_t& message) override
     {
         if(!has_messages())
         {

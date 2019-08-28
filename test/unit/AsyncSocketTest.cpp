@@ -42,10 +42,10 @@ public:
 
     using NetworkSocketListener::set_socket;
 
-    std::optional<Socket::message_in_t> receive()
+    std::optional<message_in_t> receive()
     {
         std::unique_lock lock(m_mutex);
-        std::optional<Socket::message_in_t> out = {};
+        std::optional<message_in_t> out = {};
 
         if(!m_messages.empty())
         {
@@ -56,7 +56,7 @@ public:
         return out;
     }
 
-    void on_network_message(Socket::message_in_t &msg)
+    void on_network_message(message_in_t &msg)
     {
         std::unique_lock lock(m_mutex);
         m_messages.push_back(msg);
@@ -64,7 +64,7 @@ public:
 
 private:
     std::mutex m_mutex;
-    std::list<Socket::message_in_t> m_messages;
+    std::list<message_in_t> m_messages;
 };
 
 class Server : public yael::NetworkSocketListener
@@ -158,7 +158,7 @@ TEST_P(AsyncSocketTest, send_one_way)
 
     m_connection2->send(data, len, false, true);
 
-    std::optional<Socket::message_in_t> msg;
+    std::optional<message_in_t> msg;
 
     while(!msg)
     {
@@ -181,7 +181,7 @@ TEST_P(AsyncSocketTest, send_large_chunk)
 
     m_connection2->send(to_send, len, false, true);
 
-    std::optional<Socket::message_in_t> msg;
+    std::optional<message_in_t> msg;
 
     while(!msg)
     {
@@ -209,7 +209,7 @@ TEST_P(AsyncSocketTest, send_other_way)
     memcpy(to_send, data, len);
     m_connection1->send(to_send, len, false, true);
 
-    std::optional<Socket::message_in_t> msg;
+    std::optional<message_in_t> msg;
 
     while(!msg)
     {

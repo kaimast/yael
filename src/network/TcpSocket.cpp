@@ -466,7 +466,7 @@ bool TcpSocket::receive_data(buffer_t &buffer)
     }
 }
 
-std::optional<TcpSocket::message_in_t> TcpSocket::receive()
+std::optional<message_in_t> TcpSocket::receive()
 {
     pull_messages();
 
@@ -487,7 +487,7 @@ std::optional<TcpSocket::message_in_t> TcpSocket::receive()
     }
 }
 
-bool TcpSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len, bool async)
+bool TcpSocket::send(std::unique_ptr<uint8_t[]> data, uint32_t len, bool async)
 {
     if(len <= 0)
     {
@@ -524,6 +524,43 @@ bool TcpSocket::send(std::unique_ptr<uint8_t[]> &&data, uint32_t len, bool async
         return do_send();
     }
 }
+
+bool TcpSocket::send(std::shared_ptr<uint8_t[]> data, uint32_t len, bool async)
+{
+    if(len <= 0)
+    {
+        throw socket_error("Message size has to be > 0");
+    }
+
+    if(!is_valid())
+    {
+        throw socket_error("Socket is closed");
+    }
+
+    auto msg_out = message_out_internal_t(std::move(data), len);
+
+    {
+        std::unique_lock lock(m_send_queue_mutex);
+
+        if(m_send_queue_size >= m_max_send_queue_size)
+        {
+            throw send_queue_full();
+        }
+
+        m_send_queue_size += msg_out.length;
+        m_send_queue.emplace_back(std::move(msg_out));
+    }
+
+    if(async)
+    {
+        return true;
+    }
+    else
+    {
+        return do_send();
+    }
+}
+
 
 void TcpSocket::wait_send_queue_empty()
 {
@@ -569,8 +606,8 @@ bool TcpSocket::do_send()
 
         auto &message = *m_current_message;
         
-        const uint32_t length = message.length;
-        const uint8_t *rdata = message.data.get();
+        auto length = message.length;
+        auto rdata = message.data();
 
         while(message.sent_pos < length)
         {

@@ -1,12 +1,18 @@
 #pragma once
 
 #include <memory>
-#include "Socket.h"
+#include "buffer.h"
 
 namespace yael
 {
 namespace network
 {
+
+struct message_in_t
+{
+    uint8_t *data;
+    msg_len_t length;
+};
 
 enum class MessageMode
 {
@@ -37,7 +43,7 @@ public:
 
     virtual void process_buffer() = 0;
 
-    virtual bool get_message(Socket::message_in_t& message) = 0;
+    virtual bool get_message(message_in_t& message) = 0;
 };
 
 }

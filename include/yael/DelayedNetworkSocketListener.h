@@ -26,6 +26,9 @@ public:
     ~DelayedNetworkSocketListener();
 
     void send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking = false, bool async = false);
+
+    void send(std::shared_ptr<uint8_t[]> &&data, size_t length, bool blocking = false, bool async = false);
+
     void send(const uint8_t *data, size_t length, bool blocking = false, bool async = false);
 
     void set_delay(uint32_t delay);

@@ -8,6 +8,7 @@
 #include <iostream>
 
 #include "Address.h"
+#include "MessageSlicer.h"
 
 namespace yael
 {
@@ -38,37 +39,6 @@ inline std::ostream& operator<<(std::ostream &stream, const ProtocolType &type)
     return stream;
 }
 
-//! For internal use only
-struct buffer_t
-{
-    static constexpr int32_t MAX_SIZE = 4096;
-
-    uint8_t data[MAX_SIZE];
-    int32_t position;
-    uint32_t size;
-
-    buffer_t()
-    {
-        reset();
-    }
-
-    void reset()
-    {
-        size = 0;
-        position = -1;
-    }
-
-    bool is_valid() const
-    {
-        return size > 0;
-    }
-
-    bool at_end() const
-    {
-        return position >= static_cast<int32_t>(size);
-    }
-};
-
 class socket_error : public std::exception
 {
 public:
@@ -87,19 +57,11 @@ private:
 
 class send_queue_full : public std::exception {};
 
-using msg_len_t = uint32_t;
-
 /// Abstract socket interface
 class Socket
 {
 public:
     static constexpr uint16_t ANY_PORT = 0;
-
-    struct message_in_t
-    {
-        uint8_t *data;
-        msg_len_t length;
-    };
 
     static void free_message(message_in_t& message)
     {
@@ -149,7 +111,12 @@ public:
 
     //! Send either raw data or string
     //! This version will take ownership over the area pointed to by data
-    virtual bool send(std::unique_ptr<uint8_t[]> &&data, const uint32_t length, bool async = false) __attribute__((warn_unused_result)) = 0;
+    virtual bool send(std::unique_ptr<uint8_t[]> data, const uint32_t length, bool async = false) __attribute__((warn_unused_result)) = 0;
+
+    /// Same as send but takes a shared pointer as argument
+    /// This allows for less memcpy when sending to many parties
+    virtual bool send(std::shared_ptr<uint8_t[]> data, uint32_t len, bool async = false) __attribute__((warn_unused_result)) = 0;
+
 
     /**
      * Either the listening port or the connection port
@@ -183,6 +150,8 @@ public:
     virtual size_t send_queue_size() const = 0;
 
     virtual std::optional<message_in_t> receive() = 0;
+
+    virtual const MessageSlicer& message_slicer() const = 0;
 };
 
 inline bool Socket::listen(const std::string& name, uint16_t port, uint32_t backlog)

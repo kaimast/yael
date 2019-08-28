@@ -40,10 +40,10 @@ public:
     Peer(std::unique_ptr<yael::network::Socket> &&s, uint32_t delay = 0);
 
 protected:
-    void on_network_message(yael::network::Socket::message_in_t &msg) override;
+    void on_network_message(yael::network::message_in_t &msg) override;
 };
 
-std::string to_string(yael::network::Socket::message_in_t &msg)
+std::string to_string(yael::network::message_in_t &msg)
 {
     return std::string(reinterpret_cast<const char*>(msg.data), msg.length);
 }
@@ -88,7 +88,7 @@ Peer::Peer(std::unique_ptr<yael::network::Socket> &&s, uint32_t delay)
 {
 }
 
-void Peer::on_network_message(yael::network::Socket::message_in_t&)
+void Peer::on_network_message(yael::network::message_in_t&)
 {
     // no messages in the churn test
 }

@@ -39,7 +39,7 @@ public:
         (void)length;
     }
 
-    bool get_message(Socket::message_in_t& message) override
+    bool get_message(message_in_t& message) override
     {
         if(!has_messages())
         {
@@ -59,7 +59,7 @@ public:
 private:
     //! Stack of incoming messages
     //! used by pull_messages() and get_message()
-    std::list<Socket::message_in_t> m_messages;
+    std::list<message_in_t> m_messages;
 
     //! Internal message buffer
     buffer_t m_buffer;
@@ -67,7 +67,7 @@ private:
 
 inline void StreamMessageSlicer::process_buffer()
 {
-    Socket::message_in_t msg;
+    message_in_t msg;
 
     // turn current buffer into message
     if(m_buffer.size <= 0)

@@ -42,10 +42,10 @@ public:
 
     using NetworkSocketListener::set_socket;
 
-    std::optional<Socket::message_in_t> receive()
+    std::optional<message_in_t> receive()
     {
         std::unique_lock lock(m_mutex);
-        std::optional<Socket::message_in_t> out = {};
+        std::optional<message_in_t> out = {};
 
         if(!m_messages.empty())
         {
@@ -56,7 +56,7 @@ public:
         return out;
     }
 
-    void on_network_message(Socket::message_in_t &msg)
+    void on_network_message(message_in_t &msg)
     {
         std::unique_lock lock(m_mutex);
         m_messages.push_back(msg);
@@ -64,7 +64,7 @@ public:
 
 private:
     std::mutex m_mutex;
-    std::list<Socket::message_in_t> m_messages;
+    std::list<message_in_t> m_messages;
 };
 
 class Server : public yael::NetworkSocketListener
@@ -158,7 +158,7 @@ TEST_P(SocketTest, send_one_way)
 
     m_connection2->send(data, len);
 
-    std::optional<Socket::message_in_t> msg;
+    std::optional<message_in_t> msg;
 
     while(!msg)
     {
@@ -181,7 +181,7 @@ TEST_P(SocketTest, send_large_chunk)
 
     m_connection2->send(to_send, len);
 
-    std::optional<Socket::message_in_t> msg;
+    std::optional<message_in_t> msg;
 
     while(!msg)
     {
@@ -191,8 +191,8 @@ TEST_P(SocketTest, send_large_chunk)
     ASSERT_EQ(len, msg->length);
     ASSERT_EQ(0, memcmp(data, msg->data, len));
 
-    ASSERT_EQ(0, m_connection1->socket().send_queue_size());
-    ASSERT_EQ(0, m_connection2->socket().send_queue_size());
+    ASSERT_EQ(0U, m_connection1->socket().send_queue_size());
+    ASSERT_EQ(0U, m_connection2->socket().send_queue_size());
     ASSERT_EQ(Connection::MAX_SEND_QUEUE_SIZE, m_connection1->socket().max_send_queue_size());
     ASSERT_EQ(Connection::MAX_SEND_QUEUE_SIZE, m_connection2->socket().max_send_queue_size());
 
@@ -211,7 +211,7 @@ TEST_P(SocketTest, send_other_way)
     memcpy(to_send, data, len);
     m_connection1->send(to_send, len);
 
-    std::optional<Socket::message_in_t> msg;
+    std::optional<message_in_t> msg;
 
     while(!msg)
     {
@@ -237,14 +237,13 @@ TEST_P(SocketTest, first_in_first_out)
     m_connection2->send(type1, len);
     m_connection2->send(type2, len);
 
-    std::optional<Socket::message_in_t> msg1;
+    std::optional<message_in_t> msg1, msg2;
 
     while(!msg1)
     {
         msg1 = m_connection1->receive();
     }
  
-    std::optional<Socket::message_in_t> msg2;
 
     while(!msg2)
     {
