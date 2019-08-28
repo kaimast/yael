@@ -37,17 +37,22 @@ public:
         return MessageMode::Datagram;
     }
 
-    void prepare_message(std::unique_ptr<uint8_t[]> &ptr, uint32_t &length) override
+    void prepare_message_raw(uint8_t *&cptr, uint32_t &length) const override
     {
-        auto cptr = ptr.get();
-        ptr.release();
-
         auto payload_length = length;
         length = length + sizeof(length);
 
         cptr = reinterpret_cast<uint8_t*>(realloc(cptr, length));
         memmove(cptr+sizeof(length), cptr, payload_length);
         memcpy(cptr, reinterpret_cast<uint8_t*>(&length), sizeof(length));
+    }
+
+    void prepare_message(std::unique_ptr<uint8_t[]> &ptr, uint32_t &length) const override
+    {
+        auto cptr = ptr.get();
+        ptr.release();
+
+        prepare_message_raw(cptr, length);
 
         ptr = std::unique_ptr<uint8_t[]>(cptr);
     }

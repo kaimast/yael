@@ -32,7 +32,14 @@ public:
         return MessageMode::Stream;
     }
 
-    void prepare_message(std::unique_ptr<uint8_t[]> &ptr, uint32_t &length) override
+    void prepare_message_raw(uint8_t *&cptr, uint32_t &length) const override
+    {
+        // no-op
+        (void)cptr;
+        (void)length;
+    }
+ 
+    void prepare_message(std::unique_ptr<uint8_t[]> &ptr, uint32_t &length) const override
     {
         // no-op
         (void)ptr;

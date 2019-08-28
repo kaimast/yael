@@ -10,6 +10,11 @@
 namespace yael
 {
 
+namespace network
+{
+class MessageSlicer;
+}
+
 enum class SocketType { None, Acceptor, Connection };
 
 class NetworkSocketListener: public EventListener
@@ -66,6 +71,16 @@ public:
     }
 
     void re_register(bool first_time) override;
+
+    const network::MessageSlicer& message_slicer() const
+    {
+        if(!m_socket)
+        {
+            throw std::runtime_error("No socket");
+        }
+
+        return m_socket->message_slicer();
+    }
 
 protected:
     /**

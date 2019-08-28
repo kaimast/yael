@@ -37,7 +37,9 @@ public:
 
     virtual bool has_messages() const = 0;
 
-    virtual void prepare_message(std::unique_ptr<uint8_t[]> &ptr, uint32_t &length) = 0;
+    virtual void prepare_message_raw(uint8_t *&cptr, uint32_t &length) const = 0;
+
+    virtual void prepare_message(std::unique_ptr<uint8_t[]> &ptr, uint32_t &length) const = 0;
 
     virtual buffer_t& buffer() = 0;
 
