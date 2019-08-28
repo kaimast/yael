@@ -54,9 +54,9 @@ public:
 
     bool send(const uint8_t *data, uint32_t len, bool async = false) override __attribute__((warn_unused_result));
 
-    bool send(std::unique_ptr<uint8_t[]> data, uint32_t len, bool async = false) override __attribute__((warn_unused_result));
+    bool send(std::unique_ptr<uint8_t[]> &data, uint32_t len, bool async = false) override __attribute__((warn_unused_result));
 
-    bool send(std::shared_ptr<uint8_t[]> data, uint32_t len, bool async = false) override __attribute__((warn_unused_result));
+    bool send(std::shared_ptr<uint8_t[]> &data, uint32_t len, bool async = false) override __attribute__((warn_unused_result));
 
     bool do_send() override __attribute__((warn_unused_result));
 
@@ -228,7 +228,7 @@ inline bool TcpSocket::send(const uint8_t *data, uint32_t len, bool async)
     auto cpy = std::make_unique<uint8_t[]>(len); 
     memcpy(cpy.get(), data, len);
 
-    return send(std::move(cpy), len, async);
+    return send(cpy, len, async);
 }
 
 }

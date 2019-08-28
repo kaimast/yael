@@ -487,7 +487,7 @@ std::optional<message_in_t> TcpSocket::receive()
     }
 }
 
-bool TcpSocket::send(std::unique_ptr<uint8_t[]> data, uint32_t len, bool async)
+bool TcpSocket::send(std::unique_ptr<uint8_t[]> &data, uint32_t len, bool async)
 {
     if(len <= 0)
     {
@@ -499,10 +499,6 @@ bool TcpSocket::send(std::unique_ptr<uint8_t[]> data, uint32_t len, bool async)
         throw socket_error("Socket is closed");
     }
 
-    m_slicer->prepare_message(data, len);
-
-    auto msg_out = message_out_internal_t(std::move(data), len);
-
     {
         std::unique_lock lock(m_send_queue_mutex);
 
@@ -510,6 +506,10 @@ bool TcpSocket::send(std::unique_ptr<uint8_t[]> data, uint32_t len, bool async)
         {
             throw send_queue_full();
         }
+
+        // Don't move until we know the send queue is not too full
+        m_slicer->prepare_message(data, len);
+        auto msg_out = message_out_internal_t(std::move(data), len);
 
         m_send_queue_size += msg_out.length;
         m_send_queue.emplace_back(std::move(msg_out));
@@ -525,7 +525,7 @@ bool TcpSocket::send(std::unique_ptr<uint8_t[]> data, uint32_t len, bool async)
     }
 }
 
-bool TcpSocket::send(std::shared_ptr<uint8_t[]> data, uint32_t len, bool async)
+bool TcpSocket::send(std::shared_ptr<uint8_t[]> &data, uint32_t len, bool async)
 {
     if(len <= 0)
     {
@@ -537,8 +537,6 @@ bool TcpSocket::send(std::shared_ptr<uint8_t[]> data, uint32_t len, bool async)
         throw socket_error("Socket is closed");
     }
 
-    auto msg_out = message_out_internal_t(std::move(data), len);
-
     {
         std::unique_lock lock(m_send_queue_mutex);
 
@@ -546,6 +544,9 @@ bool TcpSocket::send(std::shared_ptr<uint8_t[]> data, uint32_t len, bool async)
         {
             throw send_queue_full();
         }
+
+        // Don't move until we know the send queue is not too full
+        auto msg_out = message_out_internal_t(std::move(data), len);
 
         m_send_queue_size += msg_out.length;
         m_send_queue.emplace_back(std::move(msg_out));

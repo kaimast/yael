@@ -133,7 +133,7 @@ void NetworkSocketListener::send(std::shared_ptr<uint8_t[]> &&data, size_t lengt
 
     while(true) {
         try {
-            has_more = m_socket->send(std::move(data), length, async);
+            has_more = m_socket->send(data, length, async);
             break;
         } catch(const network::socket_error &e) {
             LOG(WARNING) << "Failed to send data to " << m_socket->get_remote_address() << ": " << e.what();
@@ -185,7 +185,7 @@ void NetworkSocketListener::send(std::unique_ptr<uint8_t[]> &&data, size_t lengt
 
     while(true) {
         try {
-            has_more = m_socket->send(std::move(data), length, async);
+            has_more = m_socket->send(data, length, async);
             break;
         } catch(const network::socket_error &e) {
             LOG(WARNING) << "Failed to send data to " << m_socket->get_remote_address() << ": " << e.what();
