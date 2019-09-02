@@ -94,7 +94,7 @@ void TimeEventListener::on_read_ready()
 
         if(!m_queued_events.empty() && m_fd >= 0)
         {
-            auto next = m_queued_events[0];
+            auto next = *m_queued_events.begin();
 
             if(next < now)
             {
@@ -125,30 +125,11 @@ bool TimeEventListener::schedule(uint64_t delay)
     }
 
     bool is_scheduled = !m_queued_events.empty();
-    bool inserted = false;
-    bool first = true;
-
+    
     auto start = get_current_time() + delay;
+    auto it = m_queued_events.insert(start);
 
-    for(auto it = m_queued_events.begin(); !inserted && it != m_queued_events.end(); ++it)
-    {
-        if(*it > start)
-        {
-            m_queued_events.insert(it, start);
-            inserted = true;
-        }
-        else
-        {
-            first = false;
-        }
-    }
-
-    if(!inserted)
-    {
-        m_queued_events.push_back(start);
-    }
-
-    if(first)
+    if(it == m_queued_events.begin())
     {
         is_scheduled = false;
     }

@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <mutex>
+#include <set>
 
 #include "EventListener.h"
 
@@ -56,7 +57,7 @@ private:
     int32_t m_fd;
 
     std::mutex m_mutex;
-    std::vector<uint64_t> m_queued_events;
+    std::multiset<uint64_t> m_queued_events;
 };
 
 }
