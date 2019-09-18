@@ -57,7 +57,12 @@ void TimeEventListener::on_read_ready()
     std::unique_lock lock(m_mutex);
 
     uint64_t buf;
-    ::read(m_fd, &buf, sizeof(buf));
+    auto res = ::read(m_fd, &buf, sizeof(buf));
+
+    if(res != sizeof(buf))
+    {
+        LOG(FATAL) << "Failed to read from timefd";
+    }
 
     if(buf == 1)
     {
