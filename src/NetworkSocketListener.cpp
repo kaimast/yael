@@ -136,7 +136,7 @@ void NetworkSocketListener::send(std::shared_ptr<uint8_t[]> &&data, size_t lengt
             has_more = m_socket->send(data, length, async);
             break;
         } catch(const network::socket_error &e) {
-            LOG(WARNING) << "Failed to send data to " << m_socket->get_remote_address() << ": " << e.what();
+            DLOG(WARNING) << "Failed to send data to " << m_socket->get_remote_address() << ": " << e.what();
 
             has_more = false;
             close_socket();
@@ -144,7 +144,7 @@ void NetworkSocketListener::send(std::shared_ptr<uint8_t[]> &&data, size_t lengt
         } catch(const network::send_queue_full&) {
             if(blocking)
             {
-                LOG(WARNING) << "Send queue to " << m_socket->get_remote_address() << " is full. Thread is blocking...";
+                DLOG(WARNING) << "Send queue to " << m_socket->get_remote_address() << " is full. Thread is blocking...";
 
                 send_lock.unlock();
                 m_socket->wait_send_queue_empty();
