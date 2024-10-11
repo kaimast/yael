@@ -1,7 +1,12 @@
 #include "yael/network/TlsSocket.h"
+#include "yael/network/Socket.h"
 
 #include "TlsContext.h"
 
+#include <cstdint>
+#include <utility>
+#include <vector>
+#include <memory>
 #include <glog/logging.h>
 
 namespace yael::network
@@ -125,18 +130,18 @@ bool TlsSocket::is_connected() const
 
 void TlsSocket::pull_messages() 
 {
-    bool res = receive_data(m_buffer);
-
-    if(!res)
-    {
-        return;
-    }
-
-    m_tls_context->tls_process_data(m_buffer);
-    m_buffer.reset();
-
     // always pull more until we get EAGAIN
-    pull_messages();
+    while (true) {
+        const bool res = receive_data(m_buffer);
+
+        if(!res)
+        {
+            return;
+        }
+
+        m_tls_context->tls_process_data(m_buffer);
+        m_buffer.reset();
+    }
 }
 
 } // namespace yael::network

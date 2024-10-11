@@ -71,7 +71,7 @@ Address resolve_URL(const std::string &url, uint16_t port_number, bool IPv6)
     struct addrinfo *host, *hosti;
     Address address;
 
-    int error = getaddrinfo(url.c_str(), nullptr, nullptr, &host );
+    const auto error = getaddrinfo(url.c_str(), nullptr, nullptr, &host );
 
     if (error != 0)
     {

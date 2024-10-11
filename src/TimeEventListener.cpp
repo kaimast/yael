@@ -122,7 +122,7 @@ void TimeEventListener::on_read_ready()
 
 bool TimeEventListener::schedule(uint64_t delay)
 {
-    std::unique_lock lock(m_mutex);
+    const std::unique_lock lock(m_mutex);
 
     if(m_fd < 0)
     {
@@ -150,9 +150,9 @@ bool TimeEventListener::schedule(uint64_t delay)
 
 bool TimeEventListener::unschedule()
 {
-    std::unique_lock lock(m_mutex);
+    const std::unique_lock lock(m_mutex);
 
-    bool has_events = !m_queued_events.empty();
+    const bool has_events = !m_queued_events.empty();
     m_queued_events.clear();
 
     return has_events;
@@ -160,7 +160,7 @@ bool TimeEventListener::unschedule()
 
 bool TimeEventListener::internal_schedule(uint64_t delay)
 {
-    int32_t flags = 0;
+    const auto flags = 0;
     itimerspec new_value;
     new_value.it_interval.tv_sec = 0;
     new_value.it_interval.tv_nsec = 0;
@@ -174,8 +174,8 @@ bool TimeEventListener::internal_schedule(uint64_t delay)
     }
     else
     {
-        new_value.it_value.tv_sec = delay / 1000;
-        new_value.it_value.tv_nsec = (delay % 1000) * (1000*1000);
+        new_value.it_value.tv_sec = static_cast<__syscall_slong_t>(delay) / 1000;
+        new_value.it_value.tv_nsec = static_cast<__syscall_slong_t>(delay % 1000) * 1'000'000;
     }
 
     itimerspec old_value;

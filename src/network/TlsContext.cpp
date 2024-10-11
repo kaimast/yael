@@ -6,8 +6,6 @@
 #include <botan/tls_client.h>
 #include <glog/logging.h>
 
-#include "DatagramMessageSlicer.h"
-
 namespace yael::network
 {
 
@@ -18,9 +16,9 @@ TlsContext::TlsContext(TlsSocket &socket)
 
 void TlsContext::send(const uint8_t *data, uint32_t length)
 {
-    std::unique_lock lock(m_mutex);
+    const std::unique_lock lock(m_mutex);
 
-    uint32_t header = length + sizeof(uint32_t);
+    const uint32_t header = length + sizeof(uint32_t);
     m_channel->send(reinterpret_cast<const uint8_t*>(&header), sizeof(header));
     m_channel->send(data, length);
 }
@@ -108,7 +106,7 @@ void TlsContext::tls_record_received(uint64_t seq_no, const uint8_t data[], size
 {
     (void)seq_no;
 
-    std::unique_lock lock(m_mutex);
+    const std::unique_lock lock(m_mutex);
 
     auto &slicer = *m_socket.m_slicer;
     auto &buffer = slicer.buffer();
@@ -150,7 +148,7 @@ bool TlsContext::tls_session_established(const Botan::TLS::Session &session)
 {
     (void)session;
 
-    std::unique_lock lock(m_mutex);
+    const std::unique_lock lock(m_mutex);
 
     m_socket.m_state = TlsSocket::State::Connected;
     m_cond_var.notify_all();

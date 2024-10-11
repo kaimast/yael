@@ -1,0 +1,29 @@
+name: Integration Tests 
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Install dependencies
+        run: |
+            bash ci/install-packages.sh
+            bash ci/setup-prereq-ext.sh
+            bash ci/setup-yael.sh
+      - name: Lint Checks 
+        run: bash ci/clang-tidy.sh
+      - name: Unit Tests
+        run: bash ci/unit-tests.sh
+      - name: Integration Tests
+        run: bash ci/integration-tests.sh

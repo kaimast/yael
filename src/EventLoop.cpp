@@ -200,9 +200,9 @@ std::pair<EventListenerPtr*, EventLoop::EventType> EventLoop::update()
         EventType type;
         auto flags = events[0].events;
 
-        bool has_read = (flags & EPOLLIN) != 0U;
-        bool has_write = (flags & EPOLLOUT) != 0U;
-        bool has_error = (flags & EPOLLERR) != 0U;
+        const bool has_read = (flags & EPOLLIN) != 0U;
+        const bool has_write = (flags & EPOLLOUT) != 0U;
+        const bool has_error = (flags & EPOLLERR) != 0U;
 
         if(has_read && has_write)
         {
@@ -265,7 +265,7 @@ void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t 
 
     auto op = modify ? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
 
-    int epoll_res = epoll_ctl(m_epoll_fd, op, fileno, &ev);
+    const int epoll_res = epoll_ctl(m_epoll_fd, op, fileno, &ev);
     if(epoll_res != 0)
     {
         LOG(ERROR) << "epoll_ctl() failed: " << strerror(errno);
@@ -279,7 +279,7 @@ void EventLoop::notify_listener_mode_change(EventListenerPtr listener, EventList
     EventListenerPtr *ptr = nullptr;
 
     {
-        std::unique_lock lock(m_event_listeners_mutex);
+        const std::unique_lock lock(m_event_listeners_mutex);
         auto it = m_event_listeners.find(listener->get_fileno());
 
         if(it == m_event_listeners.end())
@@ -297,7 +297,7 @@ void EventLoop::notify_listener_mode_change(EventListenerPtr listener, EventList
 
 void EventLoop::unregister_event_listener(EventListenerPtr listener) noexcept
 {
-    std::unique_lock lock(m_event_listeners_mutex);
+    const std::unique_lock lock(m_event_listeners_mutex);
 
     auto fileno = listener->get_fileno();
     auto it = m_event_listeners.find(fileno);
@@ -309,7 +309,7 @@ void EventLoop::unregister_event_listener(EventListenerPtr listener) noexcept
     else
     {
         // (except for when releasing the socket manually)
-        int epoll_res = epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fileno, nullptr);
+        const auto epoll_res = epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fileno, nullptr);
         (void)epoll_res; 
         
         delete it->second;
@@ -363,11 +363,11 @@ void EventLoop::thread_loop()
 
 void EventLoop::run() noexcept
 {
-    int32_t num_threads = m_num_threads;
+    auto num_threads = m_num_threads;
 
     if(num_threads <= 0)
     {
-        num_threads = 2 * std::thread::hardware_concurrency();
+        num_threads = 2 * static_cast<int32_t>(std::thread::hardware_concurrency());
 
         if(num_threads <= 0)
         {
@@ -375,7 +375,7 @@ void EventLoop::run() noexcept
         }
     }
 
-    for(int32_t i = 0; i < num_threads; ++i)
+    for(auto i = 0; i < num_threads; ++i)
     {
         m_threads.emplace_back(std::thread(&EventLoop::thread_loop, this));
     }
