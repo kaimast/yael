@@ -377,7 +377,7 @@ void EventLoop::run() noexcept
 
     for(auto i = 0; i < num_threads; ++i)
     {
-        m_threads.emplace_back(std::thread(&EventLoop::thread_loop, this));
+        m_threads.emplace_back(&EventLoop::thread_loop, this);
     }
 }
 
