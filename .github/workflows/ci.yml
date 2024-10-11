@@ -15,8 +15,8 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Install dependencie:
+        uses: actions/checkout@v4
+      - name: Install dependencies
         run: |
             sudo apt-get update
             sudo apt-get dist-upgrade -y
