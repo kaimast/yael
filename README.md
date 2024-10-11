@@ -11,7 +11,7 @@ Core Features:
 * Networking abstraction for TCP and TLS
 
 ## Building
-This project depends on the google testing and logging frameworks, as well as libbotan for encryption (TLS).
+This project depends on the google testing (gtest)  and logging frameworks (glog), as well as libbotan for encryption (TLS).
 
 To compile the project you further need meson-build, ninja, and a recent (>= C++17) compiler.
 

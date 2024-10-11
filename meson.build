@@ -18,11 +18,8 @@ cpp = meson.get_compiler('cpp')
 gtest_dep = dependency('gtest')
 gflags_dep = cpp.find_library('gflags')
 thread_dep = dependency('threads')
-log_dep = cpp.find_library('glog')
-
-
+log_dep = dependency('glog')
 botan_dep = cpp.find_library('botan-2', dirs: prefix_library_path)
-
 
 subdir('src')
 

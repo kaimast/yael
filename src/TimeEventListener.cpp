@@ -1,3 +1,4 @@
+#include <unistd.h>
 
 #include <sys/timerfd.h>
 #include <yael/EventLoop.h>

@@ -1,6 +1,7 @@
 #include "yael/EventLoop.h"
 #include "yael/EventListener.h"
 
+#include <unistd.h>
 #include <glog/logging.h>
 #include <cassert>
 #include <chrono>
