@@ -268,7 +268,8 @@ void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t 
     const int epoll_res = epoll_ctl(m_epoll_fd, op, fileno, &ev);
     if(epoll_res != 0)
     {
-        LOG(ERROR) << "epoll_ctl() failed: " << strerror(errno);
+        LOG(ERROR) << "epoll_ctl() failed: " << strerror(errno) << " (fileno=" << fileno \
+            << ", modify=" << modify << ")";
     }
 }
 

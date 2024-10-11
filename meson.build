@@ -32,7 +32,7 @@ churn = executable('churn-test', ['test/churn.cpp'],link_with: yael, dependencie
 
 subdir('test/unit')
 
-executable('yael-test', test_cpp_files, link_with: yael, dependencies: [log_dep, thread_dep, gtest_dep, gflags_dep], include_directories: [incdir], cpp_args: compile_args)
+yael_test = executable('yael-test', test_cpp_files, link_with: yael, dependencies: [log_dep, thread_dep, gtest_dep, gflags_dep], include_directories: [incdir], cpp_args: compile_args)
 
 install_subdir('include/yael', install_dir : 'include')
 
@@ -51,3 +51,9 @@ if clangtidy.found()
     depends: [yael])
 endif
 
+run_target(
+    'unit-tests',
+    command: [
+        'scripts/unit-tests.sh',
+    ],
+    depends: [yael_test])

@@ -1,4 +1,4 @@
-name: Integration Tests 
+name: Continuous Integration 
 
 on:
   push:
@@ -18,12 +18,14 @@ jobs:
         uses: actions/checkout@v3
       - name: Install dependencies
         run: |
-            bash ci/install-packages.sh
+            sudo apt-get update
+            sudo apt-get install meson build-essential git g++ libgtest-dev libgflags-dev libboost-program-options-dev libpython3-dev libboost-python-dev pkg-config python3-pytest cmake clang libgmp-dev libssl-dev libgoogle-glog-dev -y
             bash ci/setup-prereq-ext.sh
-            bash ci/setup-yael.sh
+      - name: build
+        run: bash ci/setup-yael.sh
       - name: Lint Checks 
-        run: bash ci/clang-tidy.sh
+        run: cd build && ninja tidy
       - name: Unit Tests
-        run: bash ci/unit-tests.sh
+        run: cd build && ninja unit-tests
       - name: Integration Tests
         run: bash ci/integration-tests.sh
