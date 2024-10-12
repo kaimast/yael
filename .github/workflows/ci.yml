@@ -24,7 +24,11 @@ jobs:
             sudo apt-get install libpython3-dev libboost-python-dev pkg-config python3-pytest cmake clang
             sudo apt-get install libbotan-2-dev libgmp-dev libssl-dev libunwind-dev libgoogle-glog-dev -y
       - name: build
-        run: bash scripts/setup-yael.sh
+        run: |
+            meson build -Dbuildtype=release --prefix=$HOME/local
+            cd build
+            ninja -v
+            ninja install -v
       - name: Lint Checks 
         run: cd build && ninja lint 
       - name: Unit Tests
