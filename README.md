@@ -16,7 +16,7 @@ This project depends on the google testing (gtest)  and logging frameworks (glog
 To compile the project you further need meson-build, ninja, and a recent (>= C++17) compiler.
 
 After running `meson build`, you can use `ninja` for development.
-`ninja tests` runs all unit tests and `ninja tidy` exeuctes lint checks if clang-tidy is available.
+`ninja tests` runs all unit tests and `ninja lint` exeuctes lint checks if clang-tidy is available.
 
 ## Usage
 To make your socket handler compatible with the event loop just use the NetworkSocketListener interface

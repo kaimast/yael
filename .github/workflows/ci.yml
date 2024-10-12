@@ -22,12 +22,12 @@ jobs:
             sudo apt-get dist-upgrade -y
             sudo apt-get install meson build-essential git g++ libgtest-dev libgflags-dev libboost-program-options-dev
             sudo apt-get install libpython3-dev libboost-python-dev pkg-config python3-pytest cmake clang
-            sudo apt-get install libbotan-2-dev libgmp-dev libssl-dev libgoogle-glog-dev -y
+            sudo apt-get install libbotan-2-dev libgmp-dev libssl-dev libunwind-dev libgoogle-glog-dev -y
       - name: build
-        run: bash ci/setup-yael.sh
+        run: bash scripts/setup-yael.sh
       - name: Lint Checks 
-        run: cd build && ninja tidy
+        run: cd build && ninja lint 
       - name: Unit Tests
         run: cd build && ninja unit-tests
       - name: Integration Tests
-        run: bash ci/integration-tests.sh
+        run: cd build && ninja integration-tests
