@@ -91,6 +91,8 @@ void TimeEventListener::on_read_ready()
             }
         }
 
+        VLOG(1) << "Found " << count << " time events to trigger";
+
         lock.unlock();
         for(size_t i = 0; i < count; ++i)
         {
