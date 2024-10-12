@@ -46,6 +46,7 @@ void TimeEventListener::re_register(bool first_time)
 {
     if(!is_valid())
     {
+        VLOG(1) << "Cannot (re-)register. Time event listener invalid.";
         return;
     }
 
