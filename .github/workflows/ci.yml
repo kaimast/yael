@@ -32,7 +32,7 @@ jobs:
         run: cd build && ninja lint 
       - name: Unit Tests
         timeout-minutes: 5
-        run: cd build && ninja unit-tests
+        run: cd build && GLOG_v=3 ninja unit-tests
       - name: Integration Tests
         timeout-minutes: 15
         run: cd build && ninja integration-tests
