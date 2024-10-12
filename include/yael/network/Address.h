@@ -1,15 +1,11 @@
 #pragma once
 
 #include <string>
-#include <stdint.h>
-#include <sstream>
+#include <cstdint>
 #include <netinet/in.h>
 #include <iostream>
 
-namespace yael
-{
-namespace network
-{
+namespace yael::network {
 
 /**
  * @brief Structure representing a network address
@@ -19,22 +15,21 @@ struct Address
 {
     constexpr static uint16_t InvalidPort = 0;
 
-    Address(const std::string& ip = "", uint16_t portNumber = InvalidPort, bool IPv6_ = false)
+    explicit Address(const std::string ip = "", uint16_t portNumber = InvalidPort, bool IPv6_ = false)
         : IP(ip), PortNumber(portNumber), IPv6(IPv6_)
     {
     }
 
-    Address(const Address &other)
-        : IP(other.IP), PortNumber(other.PortNumber), IPv6(other.IPv6)
-    {}
+    Address(const Address &other) = default;
 
-    Address(Address &&other)
+    Address(Address &&other) noexcept
         : IP(std::move(other.IP)), PortNumber(other.PortNumber), IPv6(other.IPv6)
     {}
 
-    Address(const sockaddr_in6& addr);
-    Address(const sockaddr_in& addr);
+    explicit Address(const sockaddr_in6& addr);
+    explicit Address(const sockaddr_in& addr);
 
+    [[nodiscard]]
     bool valid() const
     {
         return IP.size() > 0 && PortNumber != 0;
@@ -52,16 +47,20 @@ struct Address
     /**
      * @brief Is this network address equal to other?
      */
+    [[nodiscard]]
     bool equals(const Address& other) const
     {
-        if (other.PortNumber != PortNumber)
+        if (other.PortNumber != PortNumber) {
             return false;
+        }
 
-        if (other.IPv6 != IPv6)
+        if (other.IPv6 != IPv6) {
             return false;
+        }
 
-        if (other.IP != IP)
-            return false;
+        if (other.IP != IP) {
+           return false;
+        }
 
         return true;
     }
@@ -79,14 +78,7 @@ struct Address
         return !this->equals(other);
     }
 
-    Address& operator=(const Address& other)
-    {
-        IP = other.IP;
-        IPv6 = other.IPv6;
-        PortNumber = other.PortNumber;
-
-        return (*this);
-    }
+    Address& operator=(const Address& other) = default;
 
     void reset()
     {
@@ -108,5 +100,4 @@ inline std::ostream& operator<<(std::ostream &os, const Address &addr)
     return os << addr.IP << ':' << addr.PortNumber;
 }
 
-}
 }

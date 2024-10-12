@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <atomic>
 #include <glog/logging.h>
 
 namespace yael
@@ -41,13 +40,19 @@ public:
 
     virtual void close_socket() = 0;
 
+    static const char* mode_to_string(Mode &mode) {
+        switch(mode) {
+            case Mode::ReadOnly: return "read-only";
+            case Mode::ReadWrite: return "read-write";
+            default: return "unknown";
+        }
+    }
+
 protected:
     EventListener() = default;
-
-private:
-    std::atomic<Mode> m_mode;
 };
 
-typedef std::shared_ptr<EventListener> EventListenerPtr;
+using EventListenerPtr = std::shared_ptr<EventListener>;
+
 
 }

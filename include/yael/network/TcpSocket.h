@@ -6,16 +6,13 @@
 #include <cstring>
 #include <mutex>
 #include <condition_variable>
-#include <tuple>
 #include <atomic>
 #include <memory>
 
 #include "MessageSlicer.h"
 #include "Socket.h"
 
-namespace yael
-{
-namespace network
+namespace yael::network
 {
 
 /**
@@ -27,16 +24,18 @@ namespace network
 class TcpSocket : public Socket
 {
 public:
-    static constexpr size_t DEFAULT_MAX_SEND_QUEUE_SIZE = 1024 * 1024;
+    static constexpr size_t DEFAULT_MAX_SEND_QUEUE_SIZE = static_cast<size_t>(1024 * 1024);
 
     TcpSocket(const Socket& other) = delete;
 
-    TcpSocket(MessageMode mode = MessageMode::Datagram, size_t max_send_queue_size= DEFAULT_MAX_SEND_QUEUE_SIZE);
-    virtual ~TcpSocket();
+    explicit TcpSocket(MessageMode mode = MessageMode::Datagram, size_t max_send_queue_size= DEFAULT_MAX_SEND_QUEUE_SIZE);
+    ~TcpSocket() override;
 
     std::vector<std::unique_ptr<Socket>> accept() override;
 
+    [[nodiscard]]
     bool has_messages() const override;
+
     bool connect(const Address& address, const std::string& name = "") override __attribute__((warn_unused_result));
 
     bool listen(const Address& address, uint32_t backlog) override __attribute__((warn_unused_result));
@@ -45,7 +44,7 @@ public:
 
     /// Returns true if the socket closed right away
     /// False if there is still data to be written
-    virtual bool close(bool fast = false) override;
+    bool close(bool fast = false) override;
 
     inline bool wait_connection_established() override
     {
@@ -60,26 +59,35 @@ public:
 
     bool do_send() override __attribute__((warn_unused_result));
 
+    [[nodiscard]]
     uint16_t port() const override;
 
-    virtual bool is_connected() const override;
+    [[nodiscard]]
+    bool is_connected() const override;
 
+    [[nodiscard]]
     bool is_listening() const override;
 
+    [[nodiscard]]
     const Address& get_remote_address() const override;
 
+    [[nodiscard]]
     int32_t get_fileno() const override;
 
     std::optional<message_in_t> receive() override;
 
+    [[nodiscard]]
     bool is_valid() const override { return m_fd > 0; }
 
+    [[nodiscard]]
     size_t send_queue_size() const  override { return m_send_queue_size; }
 
+    [[nodiscard]]
     size_t max_send_queue_size() const override { return m_max_send_queue_size; }
 
     void wait_send_queue_empty() override;
 
+    [[nodiscard]]
     const MessageSlicer& message_slicer() const override
     {
         return *m_slicer;
@@ -89,16 +97,16 @@ protected:
     struct message_out_internal_t
     {
         message_out_internal_t(std::unique_ptr<uint8_t[]> data, uint32_t length_)
-            : length(length_), sent_pos(0), m_is_shared(false), m_data_unique(std::move(data))
+            : length(length_), m_is_shared(false), m_data_unique(std::move(data))
         {
         }
 
         message_out_internal_t(std::shared_ptr<uint8_t[]> data, uint32_t length_)
-           : length(length_), sent_pos(0), m_is_shared(true), m_data_shared(std::move(data))
+           : length(length_), m_is_shared(true), m_data_shared(std::move(data))
         {
         }
 
-        message_out_internal_t(message_out_internal_t &&other)
+        message_out_internal_t(message_out_internal_t &&other) noexcept
             : length(other.length), sent_pos(other.sent_pos),
             m_is_shared(other.m_is_shared),
             m_data_unique(std::move(other.m_data_unique)),
@@ -107,7 +115,7 @@ protected:
             other.length = other.sent_pos = 0;
         }
 
-        void operator=(message_out_internal_t &&other)
+        message_out_internal_t& operator=(message_out_internal_t &&other) noexcept
         {
             length = other.length;
             sent_pos = other.sent_pos;
@@ -117,6 +125,8 @@ protected:
             m_data_shared = std::move(other.m_data_shared);
 
             other.length = other.sent_pos = 0;
+
+            return *this;
         }
 
         const uint8_t* data()
@@ -170,6 +180,15 @@ protected:
     //! Only used by connect() and listen()
     bool bind_socket(const Address& address);
 
+    MessageSlicer& get_slicer() {
+        return *m_slicer;
+    } 
+
+    std::atomic<int>& get_fd() {
+        return m_fd;
+    }
+
+private:
     //! Port used on our side of the connection
     uint16_t m_port;
     bool m_is_ipv6;
@@ -184,7 +203,6 @@ protected:
 
     std::unique_ptr<MessageSlicer> m_slicer;
 
-private:
     enum class State
     {
         Listening,
@@ -231,5 +249,4 @@ inline bool TcpSocket::send(const uint8_t *data, uint32_t len, bool async)
     return send(cpy, len, async);
 }
 
-}
 }

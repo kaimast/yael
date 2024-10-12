@@ -63,7 +63,9 @@ EventLoop::EventLoop(int32_t num_threads)
         LOG(FATAL) << "epoll_create1() failed: " << strerror(errno);
     }
 
-    register_socket(m_event_semaphore, nullptr, EPOLLIN | EPOLLET, false);
+
+    //TODO add a special semaphore event listener
+    register_socket(m_event_semaphore, EPOLLIN | EPOLLET, false);
 }
 
 EventLoop::~EventLoop()
@@ -77,7 +79,8 @@ void EventLoop::initialize(int32_t num_threads) noexcept
 {
     if(m_instance != nullptr)
     {
-        return;  // already initialized
+        VLOG(1) << "Event loop already initialized. Will not do anything.";
+        return;
     }
 
     m_instance = new EventLoop(num_threads);
@@ -104,8 +107,11 @@ void EventLoop::stop() noexcept
 {
     if(!m_okay)
     {
-        return;//no-op
+        VLOG(1) << "Already shutting down (or shut down). Will not stop event loop again.";
+        return;
     }
+
+    LOG(INFO) << "Shutting down event loop";
 
     std::unique_lock lock(m_event_listeners_mutex);
     m_okay = false;
@@ -113,10 +119,9 @@ void EventLoop::stop() noexcept
     while(!m_event_listeners.empty())
     {
         auto it = m_event_listeners.begin();
-        auto [fileno, ptr] = *it;
+        auto listener = it->second;
 
-        (void)fileno;
-        auto listener = *ptr;
+        VLOG(1) << "Stopping next event listener (fileno=" << listener->get_fileno() << ")";
 
         lock.unlock();
         listener->close_socket();
@@ -139,7 +144,7 @@ uint64_t EventLoop::get_time() const
     return std::chrono::duration_cast<std::chrono::milliseconds>(res.time_since_epoch()).count();
 }
 
-std::pair<EventListenerPtr*, EventLoop::EventType> EventLoop::update()
+std::pair<EventListenerPtr, EventLoop::EventType> EventLoop::update()
 {
     epoll_event events[MAX_EVENTS];
     int nfds = -1;
@@ -176,9 +181,9 @@ std::pair<EventListenerPtr*, EventLoop::EventType> EventLoop::update()
         LOG(FATAL) << "Invalid state: got more than one event";
     }
 
-    auto ptr = events[0].data.ptr;
+    auto fd = events[0].data.fd;
 
-    if(ptr == nullptr) // it's the event semaphore
+    if(fd == m_event_semaphore)
     {
         // Consume it so the event fd doesn't overflow
         decrement_semaphore(m_event_semaphore);
@@ -225,7 +230,15 @@ std::pair<EventListenerPtr*, EventLoop::EventType> EventLoop::update()
             LOG(FATAL) << "Invalid event flag";
         }
 
-        return {reinterpret_cast<EventListenerPtr*>(ptr), type};
+        const std::shared_lock lock(m_event_listeners_mutex);
+        auto it = m_event_listeners.find(fd);
+
+        if (it == m_event_listeners.end()) {
+            LOG(WARNING) << "Got event for unknown event listener with fileno=" << fd;
+            return {nullptr, type};
+        } else {
+            return {it->second, type};
+        }
     }
 }
 
@@ -233,13 +246,11 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
  noexcept
 {
     std::unique_lock lock(m_event_listeners_mutex);
-
     auto idx = listener->get_fileno();
-    auto ptr = new EventListenerPtr(listener);
 
     while(true)
     {
-        auto res = m_event_listeners.emplace(idx, ptr);
+        auto res = m_event_listeners.emplace(idx, listener);
         
         if(res.second)
         {
@@ -257,11 +268,13 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
     listener->re_register(true);
 }
 
-void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t flags, bool modify)
+void EventLoop::register_socket(int32_t fileno, uint32_t flags, bool modify)
 {
+    VLOG(1) << "Registering new socket with fd=" << fileno;
+
     struct epoll_event ev;
     ev.events = flags;
-    ev.data.ptr = ptr;
+    ev.data.fd = fileno;
 
     auto op = modify ? EPOLL_CTL_MOD : EPOLL_CTL_ADD;
 
@@ -276,8 +289,9 @@ void EventLoop::register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t 
 void EventLoop::notify_listener_mode_change(EventListenerPtr listener, EventListener::Mode mode, bool first_time)
     noexcept
 {
+    VLOG(1) << "Event listener (fileno=" << listener->get_fileno() << ") mode changed to " << EventListener::mode_to_string(mode);
+
     auto flags = get_flags(mode);
-    EventListenerPtr *ptr = nullptr;
 
     {
         const std::unique_lock lock(m_event_listeners_mutex);
@@ -286,18 +300,18 @@ void EventLoop::notify_listener_mode_change(EventListenerPtr listener, EventList
         if(it == m_event_listeners.end())
         {
             // can happen during shut down
-            LOG(WARNING) << "Failed to update listener mode: no such event listener";
+            LOG(WARNING) << "Failed to update mode for listener (fileno=" << listener->get_fileno() << "): no such event listener";
             return;
         }
-
-        ptr = it->second;
     }
 
-    register_socket(listener->get_fileno(), ptr, flags, !first_time);
+    register_socket(listener->get_fileno(), flags, !first_time);
 }
 
 void EventLoop::unregister_event_listener(EventListenerPtr listener) noexcept
 {
+    VLOG(1) << "Removing event listener (fileno=" << listener->get_fileno() << ")";
+
     const std::unique_lock lock(m_event_listeners_mutex);
 
     auto fileno = listener->get_fileno();
@@ -305,17 +319,18 @@ void EventLoop::unregister_event_listener(EventListenerPtr listener) noexcept
 
     if(it == m_event_listeners.end())
     {
-        // ignore
+        LOG(WARNING) << "Could not unregister event listener. Did not exist?";
     }
     else
     {
         // (except for when releasing the socket manually)
         const auto epoll_res = epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fileno, nullptr);
-        (void)epoll_res; 
-        
-        delete it->second;
-        m_event_listeners.erase(it);
+        if(epoll_res != 0)
+        {
+            LOG(ERROR) << "epoll_ctl() failed: " << strerror(errno) << " (fileno=" << fileno << ")";
+        }
 
+        m_event_listeners.erase(it);
         m_event_listeners_cond.notify_all();
     }
 }
@@ -325,32 +340,35 @@ void EventLoop::thread_loop()
     while(this->is_okay())
     {
         auto res = update();
-        auto &[ptr, type] = res;
+        auto &[listener, type] = res;
 
-        if(ptr == nullptr)
+        if(listener == nullptr)
         {
             // terminate
             return;
         }
 
-        // make a copy here
-        auto listener = *ptr;
-
         if(type == EventType::ReadWrite)
         {
+            VLOG(2) << "Got read/write event";
             listener->on_read_ready();
             listener->on_write_ready();
         }
         else if(type == EventType::Read)
         {
+            VLOG(2) << "Got read event";
+ 
             listener->on_read_ready();
         }
         else if(type == EventType::Write)
         {
+            VLOG(2) << "Got write event";
+ 
             listener->on_write_ready();
         }
         else if(type == EventType::Error)
         {
+            VLOG(2) << "Got error event";
             listener->on_error();
         }
         else
@@ -380,6 +398,8 @@ void EventLoop::run() noexcept
     {
         m_threads.emplace_back(&EventLoop::thread_loop, this);
     }
+
+    LOG(INFO) << "Created new event loop with " << num_threads << " threads";
 }
 
 void EventLoop::wait() noexcept

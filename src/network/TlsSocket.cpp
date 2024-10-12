@@ -45,7 +45,7 @@ std::vector<std::unique_ptr<Socket>> TlsSocket::accept()
         
         if(fd >= 0)
         {
-            auto ptr = new TlsSocket(m_slicer->type(), fd, m_key_path, m_cert_path,max_send_queue_size());
+            auto ptr = new TlsSocket(get_slicer().type(), fd, m_key_path, m_cert_path,max_send_queue_size());
             res.emplace_back(std::unique_ptr<Socket>(ptr));
         }
         else

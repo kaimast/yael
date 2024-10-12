@@ -32,9 +32,25 @@ churn = executable('churn-test', ['test/churn.cpp'],link_with: yael, dependencie
 
 subdir('test/unit')
 
-yael_test = executable('yael-test', test_cpp_files, link_with: yael, dependencies: [log_dep, thread_dep, gtest_dep, gflags_dep], include_directories: [incdir], cpp_args: compile_args)
+unit_tests_bin = executable('yael-test', test_cpp_files, link_with: yael, dependencies: [log_dep, thread_dep, gtest_dep, gflags_dep], include_directories: [incdir], cpp_args: compile_args)
 
-install_subdir('include/yael', install_dir : 'include')
+inc_dir = 'include/yael'
+install_subdir(inc_dir, install_dir : 'include')
+
+yael_headers = files(
+    join_paths(inc_dir, 'DelayedNetworkSocketListener.h'),
+    join_paths(inc_dir, 'EventLoop.h'),
+    join_paths(inc_dir, 'yael.h'),
+    join_paths(inc_dir, 'NetworkSocketListener.h'),
+    join_paths(inc_dir, 'EventListener.h'),
+    join_paths(inc_dir, 'TimeEventListener.h'),
+    join_paths(inc_dir, 'network/Address.h'),
+    join_paths(inc_dir, 'network/buffer.h'),
+    join_paths(inc_dir, 'network/MessageSlicer.h'),
+    join_paths(inc_dir, 'network/Socket.h'),
+    join_paths(inc_dir, 'network/TcpSocket.h'),
+    join_paths(inc_dir, 'network/TlsSocket.h'),
+)
 
 clangtidy = find_program('clang-tidy', required: false)
 
@@ -46,16 +62,14 @@ if clangtidy.found()
             clangtidy.path(),
             meson.source_root(),
             meson.build_root()
-        ] + yael_cpp_files, # + test_cpp_files,
+        ] + yael_cpp_files + yael_headers, # + test_cpp_files,
     depends: [yael])
 endif
 
 run_target(
     'unit-tests',
-    command: [
-        'scripts/unit-tests.sh',
-    ],
-    depends: [yael_test])
+    command: unit_tests_bin,
+    depends: [unit_tests_bin])
 
 run_target(
     'integration-tests',

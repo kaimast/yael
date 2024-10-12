@@ -38,7 +38,7 @@ void TlsContext::tls_process_data(buffer_t &buffer)
     if(m_channel)
     {
         // may happe during shutdown
-        m_channel->received_data(buffer.data, buffer.size);
+        m_channel->received_data(buffer.data(), buffer.size());
     }
 }
 
@@ -64,7 +64,7 @@ void TlsContext::tls_emit_data(const uint8_t data[], size_t size)
 
     while(sent < size)
     {
-        auto s = ::write(m_socket.m_fd, reinterpret_cast<const char*>(data)+sent, size - sent);
+        auto s = ::write(m_socket.get_fd(), reinterpret_cast<const char*>(data)+sent, size - sent);
 
         if(s > 0)
         {
@@ -108,7 +108,7 @@ void TlsContext::tls_record_received(uint64_t seq_no, const uint8_t data[], size
 
     const std::unique_lock lock(m_mutex);
 
-    auto &slicer = *m_socket.m_slicer;
+    auto &slicer = m_socket.get_slicer();
     auto &buffer = slicer.buffer();
 
     size_t pos = 0;
@@ -122,9 +122,9 @@ void TlsContext::tls_record_received(uint64_t seq_no, const uint8_t data[], size
 
         auto cpy_size = std::min<size_t>(yael::network::buffer_t::MAX_SIZE, size-pos);
 
-        memcpy(buffer.data, data+pos, cpy_size);
-        buffer.size = cpy_size;
-        buffer.position = 0;
+        memcpy(buffer.data(), data+pos, cpy_size);
+        buffer.set_size(cpy_size);
+        buffer.set_position(0);
 
         slicer.process_buffer();
 

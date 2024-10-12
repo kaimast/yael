@@ -19,7 +19,6 @@ jobs:
       - name: Install dependencies
         run: |
             sudo apt-get update
-            sudo apt-get dist-upgrade -y
             sudo apt-get install meson build-essential git g++ libgtest-dev libgflags-dev libboost-program-options-dev
             sudo apt-get install libpython3-dev libboost-python-dev pkg-config python3-pytest cmake clang
             sudo apt-get install libbotan-2-dev libgmp-dev libssl-dev libunwind-dev libgoogle-glog-dev -y
@@ -32,6 +31,8 @@ jobs:
       - name: Lint Checks 
         run: cd build && ninja lint 
       - name: Unit Tests
+        timeout-minutes: 5
         run: cd build && ninja unit-tests
       - name: Integration Tests
+        timeout-minutes: 15
         run: cd build && ninja integration-tests
