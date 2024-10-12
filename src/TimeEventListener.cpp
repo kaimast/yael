@@ -144,8 +144,11 @@ bool TimeEventListener::schedule(uint64_t delay)
 
     if(is_scheduled)
     {
+        VLOG(2) << "Time event listener already enabled";
         return true;
     }
+
+    VLOG(1) << "(Re-)enabling time event listener";
 
     return internal_schedule(delay);
 }
