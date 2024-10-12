@@ -57,6 +57,8 @@ void TimeEventListener::on_read_ready()
 {
     std::unique_lock lock(m_mutex);
 
+    VLOG(2) << "Time event listener got woken up";
+
     uint64_t buf;
     auto res = ::read(m_fd, &buf, sizeof(buf));
 
@@ -91,7 +93,7 @@ void TimeEventListener::on_read_ready()
             }
         }
 
-        VLOG(1) << "Found " << count << " time events to trigger";
+        VLOG(1) << "Found " << count << " time event(s) to trigger";
 
         lock.unlock();
         for(size_t i = 0; i < count; ++i)
