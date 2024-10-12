@@ -36,7 +36,7 @@ public:
         NetworkSocketListener::set_socket(std::unique_ptr<Socket>(socket), SocketType::Connection);
     }
 
-    explicit Connection() {}
+    explicit Connection() = default;
 
     Connection(const Connection &other) = delete;
 
@@ -56,7 +56,7 @@ public:
         return out;
     }
 
-    void on_network_message(message_in_t &msg)
+    void on_network_message(message_in_t &msg) override
     {
         std::unique_lock lock(m_mutex);
         m_messages.push_back(msg);
@@ -174,7 +174,7 @@ TEST_P(SocketTest, send_one_way)
 TEST_P(SocketTest, send_large_chunk)
 {
     const uint32_t len = 50 * 1000 * 1000;
-    uint8_t *data = new uint8_t[len];
+    auto data = new uint8_t[len];
 
     auto to_send = new uint8_t[len];
     memcpy(to_send, data, len);
@@ -207,7 +207,7 @@ TEST_P(SocketTest, send_other_way)
     const uint32_t len = 4313;
     uint8_t data[len];
 
-    uint8_t *to_send = new uint8_t[len];
+    auto to_send = new uint8_t[len];
     memcpy(to_send, data, len);
     m_connection1->send(to_send, len);
 

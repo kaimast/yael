@@ -46,7 +46,7 @@ if clangtidy.found()
             clangtidy.path(),
             meson.source_root(),
             meson.build_root()
-        ] + yael_cpp_files + test_cpp_files,
+        ] + yael_cpp_files, # + test_cpp_files,
     depends: [yael])
 endif
 

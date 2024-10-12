@@ -43,7 +43,7 @@ public:
 
     std::optional<message_in_t> receive()
     {
-        std::unique_lock lock(m_mutex);
+        const std::unique_lock lock(m_mutex);
         std::optional<message_in_t> out = {};
 
         if(!m_messages.empty())
@@ -57,7 +57,7 @@ public:
 
     void on_network_message(message_in_t &msg) override
     {
-        std::unique_lock lock(m_mutex);
+        const std::unique_lock lock(m_mutex);
         m_messages.push_back(msg);
     }
 

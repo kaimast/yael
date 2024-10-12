@@ -16,7 +16,12 @@ public:
         count += 1;
     }
 
-    uint32_t count = 0;
+    int get_count() {
+        return count;
+    } 
+
+private:
+    int count = 0;
 };
 
 class TestTimeListener2 : public TimeEventListener
@@ -31,7 +36,12 @@ public:
         }
     }
 
-    uint32_t count = 0;
+    int get_count() {
+        return count;
+    } 
+
+private:
+    int count = 0;
 };
 
 
@@ -40,27 +50,27 @@ TEST(TimeEventTest, multi_schedule)
     EventLoop::initialize();
     auto &el = EventLoop::get_instance();
 
-    const uint32_t expected1 = 1;
-    const uint32_t expected2 = 2;
+    const auto expected1 = 1;
+    const auto expected2 = 2;
 
     auto hdl = el.make_event_listener<TestTimeListener>();
     hdl->schedule(100);
 
-    while(hdl->count < expected1)
+    while(hdl->get_count() < expected1)
     {
         //pass
     }
 
-    EXPECT_EQ(expected1, hdl->count);
+    EXPECT_EQ(expected1, hdl->get_count());
 
     hdl->schedule(100);
 
-    while(hdl->count < expected2)
+    while(hdl->get_count() < expected2)
     {
         //pass
     }
 
-    EXPECT_EQ(expected2, hdl->count);
+    EXPECT_EQ(expected2, hdl->get_count());
 
     el.stop();
     el.wait();
@@ -78,7 +88,7 @@ TEST(TimeEventTest, self_schedule)
 
     hdl->schedule(0);
 
-    while(hdl->count != expected)
+    while(hdl->get_count() != expected)
     {
         //pass
     }
@@ -88,7 +98,7 @@ TEST(TimeEventTest, self_schedule)
 
     EventLoop::destroy();
 
-    EXPECT_EQ(expected, hdl->count);
+    EXPECT_EQ(expected, hdl->get_count());
 }
 
 TEST(TimeEventTest, schedule_three)
@@ -102,7 +112,7 @@ TEST(TimeEventTest, schedule_three)
     hdl->schedule(100);
     hdl->schedule(400);
 
-    while(hdl->count != 3)
+    while(hdl->get_count() != 3)
     {
         //pass
     }
@@ -112,7 +122,7 @@ TEST(TimeEventTest, schedule_three)
 
     EventLoop::destroy();
 
-    EXPECT_EQ(3U, hdl->count);
+    EXPECT_EQ(3U, hdl->get_count());
 }
 
 TEST(TimeEventTest, schedule_three2)
@@ -126,7 +136,7 @@ TEST(TimeEventTest, schedule_three2)
     hdl->schedule(0);
     hdl->schedule(0);
 
-    while(hdl->count != 3)
+    while(hdl->get_count() != 3)
     {
         //pass
     }
@@ -136,5 +146,5 @@ TEST(TimeEventTest, schedule_three2)
 
     EventLoop::destroy();
 
-    EXPECT_EQ(3U, hdl->count);
+    EXPECT_EQ(3U, hdl->get_count());
 }

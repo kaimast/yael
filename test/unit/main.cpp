@@ -8,7 +8,7 @@ int main(int argc, char **argv)
 
     FLAGS_logbufsecs = 0;
     FLAGS_logbuflevel = google::GLOG_INFO;
-    FLAGS_alsologtostderr = 1;
+    FLAGS_alsologtostderr = true;
 
     testing::InitGoogleTest(&argc, argv);
 
