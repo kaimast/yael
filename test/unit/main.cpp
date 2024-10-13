@@ -1,8 +1,7 @@
-#include <gtest/gtest.h>
 #include <glog/logging.h>
+#include <gtest/gtest.h>
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     FLAGS_logbufsecs = 0;
     FLAGS_logbuflevel = google::GLOG_INFO;
     FLAGS_alsologtostderr = true;

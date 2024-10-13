@@ -28,11 +28,14 @@ jobs:
             cd build
             ninja -v
             ninja install -v
-      - name: Lint Checks 
-        run: cd build && ninja lint 
+ 
       - name: Unit Tests
         timeout-minutes: 5
         run: cd build && GLOG_v=3 ninja unit-tests
       - name: Integration Tests
         timeout-minutes: 15
         run: cd build && ninja integration-tests
+      - name: Lint Checks 
+        run: cd build && ninja lint
+      - name: Formatting Checks 
+        run: cd build && ninja clang-format-check 
