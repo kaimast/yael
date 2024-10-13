@@ -61,6 +61,7 @@ TEST(TimeEventTest, multi_schedule)
         //pass
     }
 
+    VLOG(1) << "Got first time event";
     EXPECT_EQ(expected1, hdl->get_count());
 
     hdl->schedule(100);
@@ -70,6 +71,7 @@ TEST(TimeEventTest, multi_schedule)
         //pass
     }
 
+    VLOG(1) << "Got second time event";
     EXPECT_EQ(expected2, hdl->get_count());
 
     el.stop();
