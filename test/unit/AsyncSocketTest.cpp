@@ -1,4 +1,3 @@
-#include <thread>
 #include <gtest/gtest.h>
 #include <optional>
 #include <list>
@@ -36,7 +35,7 @@ public:
         NetworkSocketListener::set_socket(std::unique_ptr<Socket>(socket), SocketType::Connection);
     }
 
-    explicit Connection() {}
+    explicit Connection() = default;
 
     Connection(const Connection &other) = delete;
 
@@ -44,7 +43,7 @@ public:
 
     std::optional<message_in_t> receive()
     {
-        std::unique_lock lock(m_mutex);
+        const std::unique_lock lock(m_mutex);
         std::optional<message_in_t> out = {};
 
         if(!m_messages.empty())
@@ -56,9 +55,9 @@ public:
         return out;
     }
 
-    void on_network_message(message_in_t &msg)
+    void on_network_message(message_in_t &msg) override
     {
-        std::unique_lock lock(m_mutex);
+        const std::unique_lock lock(m_mutex);
         m_messages.push_back(msg);
     }
 
@@ -109,6 +108,7 @@ class AsyncSocketTest : public testing::TestWithParam<ProtocolType>
 protected:
     static constexpr uint16_t PORT = 62123;
 
+    /// For all tests we just connect two TCP sockets to each other
     void SetUp() override
     {
         EventLoop::initialize();
@@ -174,7 +174,7 @@ TEST_P(AsyncSocketTest, send_one_way)
 TEST_P(AsyncSocketTest, send_large_chunk)
 {
     const uint32_t len = 50 * 1000 * 1000;
-    uint8_t *data = new uint8_t[len];
+    auto *data = new uint8_t[len];
 
     auto to_send = new uint8_t[len];
     memcpy(to_send, data, len);
@@ -205,7 +205,7 @@ TEST_P(AsyncSocketTest, send_other_way)
     const uint32_t len = 4313;
     uint8_t data[len];
 
-    uint8_t *to_send = new uint8_t[len];
+    auto *to_send = new uint8_t[len];
     memcpy(to_send, data, len);
     m_connection1->send(to_send, len, false, true);
 

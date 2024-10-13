@@ -2,12 +2,10 @@
 
 #include "yael/network/MessageSlicer.h"
 #include <cmath>
+#include <list>
 #include <cstring>
 
-namespace yael
-{
-namespace network
-{
+namespace yael::network {
 
 /**
  * This basically doesn't modify the data stream at all
@@ -22,11 +20,13 @@ public:
         return m_buffer;
     }
     
+    [[nodiscard]]
     bool has_messages() const override
     {
         return !m_messages.empty();
     }
-    
+   
+    [[nodiscard]] 
     MessageMode type() const override
     {
         return MessageMode::Stream;
@@ -77,18 +77,17 @@ inline void StreamMessageSlicer::process_buffer()
     message_in_t msg;
 
     // turn current buffer into message
-    if(m_buffer.size <= 0)
+    if(m_buffer.is_empty())
     {
         return;
     }
 
-    msg.length = m_buffer.size;
+    msg.length = m_buffer.size();
     msg.data = reinterpret_cast<uint8_t*>(malloc(msg.length));
-    memcpy(msg.data, m_buffer.data, msg.length);
+    memcpy(msg.data, m_buffer.data(), msg.length);
 
     m_messages.emplace_back(std::move(msg));
     m_buffer.reset();
 }
 
-}
 }

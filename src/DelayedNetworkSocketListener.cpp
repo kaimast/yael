@@ -1,3 +1,5 @@
+#include <memory>
+
 #include "yael/DelayedNetworkSocketListener.h"
 #include "yael/EventLoop.h"
 #include "yael/TimeEventListener.h"
@@ -27,7 +29,7 @@ public:
 
     void on_time_event() override
     {
-        std::unique_lock lock(m_mutex);
+        const std::unique_lock lock(m_mutex);
 
         auto it = m_pending_messages.begin();
 
@@ -58,7 +60,7 @@ public:
 
     void schedule(std::shared_ptr<uint8_t[]> &&data, size_t length, uint32_t delay, bool blocking)
     {
-        std::unique_lock lock(m_mutex);
+        const std::unique_lock lock(m_mutex);
 
         m_pending_messages.emplace_back(delayed_message_t{true, std::move(data), nullptr, length, blocking});
         TimeEventListener::schedule(delay);
@@ -66,7 +68,7 @@ public:
 
     void schedule(std::unique_ptr<uint8_t[]> &&data, size_t length, uint32_t delay, bool blocking)
     {
-        std::unique_lock lock(m_mutex);
+        const std::unique_lock lock(m_mutex);
 
         m_pending_messages.emplace_back(delayed_message_t{false, nullptr, std::move(data), length, blocking});
         TimeEventListener::schedule(delay);
@@ -74,7 +76,7 @@ public:
 
     void schedule(const uint8_t *data, size_t length, uint32_t delay, bool blocking)
     {
-        std::unique_lock lock(m_mutex);
+        const std::unique_lock lock(m_mutex);
 
         auto copy = std::make_unique<uint8_t[]>(length);
         memcpy(copy.get(), data, length);

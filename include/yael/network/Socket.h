@@ -1,19 +1,16 @@
 #pragma once
 
+#include <vector>
 #include <string>
 #include <stdexcept>
-#include <stdint.h>
-#include <functional>
+#include <cstdint>
 #include <optional>
 #include <iostream>
 
 #include "Address.h"
 #include "MessageSlicer.h"
 
-namespace yael
-{
-namespace network
-{
+namespace yael::network {
 
 enum class ProtocolType : uint8_t
 {
@@ -42,10 +39,11 @@ inline std::ostream& operator<<(std::ostream &stream, const ProtocolType &type)
 class socket_error : public std::exception
 {
 public:
-    socket_error(const std::string &msg)
+    explicit socket_error(const std::string msg)
         : m_msg(msg)
     {}
 
+    [[nodiscard]]
     const char* what() const noexcept override
     {
         return m_msg.c_str();
@@ -73,6 +71,7 @@ public:
     //! Accept new connections
     virtual std::vector<std::unique_ptr<Socket>> accept() = 0;
 
+    [[nodiscard]]
     virtual bool has_messages() const = 0;
 
     //! Connect to an address
@@ -123,6 +122,7 @@ public:
      * Either the listening port or the connection port
      * (depending on the socket state)
      */
+    [[nodiscard]]
     virtual uint16_t port() const = 0;
 
     /**
@@ -130,36 +130,45 @@ public:
      *
      * Note: For TLS this means that the handshake is completed
      */
+    [[nodiscard]]
+ 
     virtual bool is_connected() const = 0;
 
     /// Is this socket listening for new connections?
+    [[nodiscard]]
+ 
     virtual bool is_listening() const = 0;
 
     /// Is this a  valid socket
     /// Note; this does not imply a connection is established yet
+    [[nodiscard]]
     virtual bool is_valid() const = 0;
 
     /// Get the address of the party we are connected to
+    [[nodiscard]]
     virtual const Address& get_remote_address() const = 0;
 
+    [[nodiscard]]
     virtual int32_t get_fileno() const = 0;
 
     /// What is the maximum amount of data that can be queued up? 
+    [[nodiscard]]
     virtual size_t max_send_queue_size() const = 0;
 
     /// How much data is queued to be sent?
+    [[nodiscard]]
     virtual size_t send_queue_size() const = 0;
 
     virtual std::optional<message_in_t> receive() = 0;
 
+    [[nodiscard]]
     virtual const MessageSlicer& message_slicer() const = 0;
 };
 
 inline bool Socket::listen(const std::string& name, uint16_t port, uint32_t backlog)
 {
-    Address addr = resolve_URL(name, port);
+    const auto addr = resolve_URL(name, port);
     return listen(addr, backlog);
 }
 
-}
 }

@@ -3,10 +3,7 @@
 #include <memory>
 #include "buffer.h"
 
-namespace yael
-{
-namespace network
-{
+namespace yael::network {
 
 struct message_in_t
 {
@@ -33,8 +30,10 @@ class MessageSlicer
 public:
     virtual ~MessageSlicer() = default;
 
+    [[nodiscard]]
     virtual MessageMode type() const = 0;
 
+    [[nodiscard]]
     virtual bool has_messages() const = 0;
 
     virtual void prepare_message_raw(uint8_t *&cptr, uint32_t &length) const = 0;
@@ -48,5 +47,4 @@ public:
     virtual bool get_message(message_in_t& message) = 0;
 };
 
-}
 }

@@ -1,19 +1,22 @@
-[![Build Status](https://travis-ci.org/kaimast/yael.svg?branch=master)](https://travis-ci.org/kaimast/yael)
+[![ci-badge](https://github.com/kaimast/yael/actions/workflows/ci.yml/badge.svg)](https://github.com/kaimast/yael/actions)
 
 # Yet Another Event Loop
 An object-oriented event loop implementation built on top of epoll.
 
 Core Features:
 * Written in modern C++ and avoids raw pointers whenever possible
-* The event loop will maintain a thread loop for you, no need to start your own worker threads
-* Thread-safe but mostly lock-free
-* Supports both time and network events
+* The event loop will spawn worker threads for you, no need to start your own
+* Thread-safe and highly concurrent
 * Networking abstraction for TCP and TLS
+* Supprot for timer events
 
 ## Building
-This project depends on the google testing and logging frameworks, as well as libbotan for encryption (TLS).
+This project depends on the google testing (gtest)  and logging frameworks (glog), as well as libbotan for encryption (TLS).
 
 To compile the project you further need meson-build, ninja, and a recent (>= C++17) compiler.
+
+After running `meson build`, you can use `ninja` for development.
+`ninja tests` runs all unit tests and `ninja lint` exeuctes lint checks if clang-tidy is available.
 
 ## Usage
 To make your socket handler compatible with the event loop just use the NetworkSocketListener interface

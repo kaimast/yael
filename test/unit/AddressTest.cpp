@@ -29,7 +29,7 @@ TEST(AddressTest, resolveUrl_localhost)
 TEST(AddressTest, resolveUrl_cornell)
 {
     const std::string url = "www.cs.cornell.edu";
-    const std::string ip = "132.236.207.20";
+    const std::string ip = "132.236.207.53";
 
     const Address addr = resolve_URL(url, 1234, false);
 

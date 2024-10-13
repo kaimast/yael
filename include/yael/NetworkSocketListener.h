@@ -31,7 +31,7 @@ public:
     NetworkSocketListener();
 
     NetworkSocketListener(const EventListener& other) = delete;
-    virtual ~NetworkSocketListener() = default;
+    ~NetworkSocketListener() override = default;
 
     /**
      * @brief get the current or most recent fileno associated with this listener
@@ -55,7 +55,7 @@ public:
 
     bool has_messages()
     {
-        std::unique_lock lock(m_mutex);
+        const std::unique_lock lock(m_mutex);
         return m_socket && m_socket->has_messages();
     }
 
@@ -63,7 +63,7 @@ public:
     void send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking = false, bool async = false);
     void send(const uint8_t *data, size_t length, bool blocking = false, bool async = false);
 
-    virtual void close_socket() override;
+    void close_socket() override;
 
     const network::Socket& socket() const
     {
@@ -99,9 +99,9 @@ private:
 
     void set_mode(EventListener::Mode mode);
 
-    void on_read_ready() override final;
-    void on_write_ready() override final;
-    void on_error() override final;
+    void on_read_ready() final;
+    void on_write_ready() final;
+    void on_error() final;
 
     std::mutex m_mutex;
 

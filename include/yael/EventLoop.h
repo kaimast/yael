@@ -1,14 +1,12 @@
 #pragma once
 
 #include <thread>
-#include <stack>
 #include <unordered_map>
 #include <shared_mutex>
-#include <vector>
 #include <condition_variable>
 #include <atomic>
 #include <list>
-#include <stdint.h>
+#include <cstdint>
 
 #include "EventListener.h"
 
@@ -93,7 +91,7 @@ public:
     }
 
 private:
-    EventLoop(int32_t num_threads);
+    explicit EventLoop(int32_t num_threads);
     ~EventLoop();
 
     void run() noexcept;
@@ -107,11 +105,11 @@ private:
         Error
     };
     
-    std::pair<EventListenerPtr*, EventType> update();
+    std::pair<EventListenerPtr, EventType> update();
     
     void thread_loop();
 
-    void register_socket(int32_t fileno, EventListenerPtr *ptr, uint32_t flags, bool modify = false);
+    void register_socket(int32_t fileno, uint32_t flags, bool modify = false);
 
     void unregister_socket(int32_t fileno);
 
@@ -124,7 +122,8 @@ private:
     std::shared_mutex m_event_listeners_mutex;
     std::condition_variable_any m_event_listeners_cond;
 
-    std::unordered_map<int32_t, EventListenerPtr*> m_event_listeners;
+    /// Mapping from the filedescriptor to the event listener
+    std::unordered_map<int32_t, EventListenerPtr> m_event_listeners;
 
     const int32_t m_epoll_fd;
     const int32_t m_event_semaphore;

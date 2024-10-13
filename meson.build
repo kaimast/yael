@@ -16,13 +16,10 @@ botan_dir = include_directories(get_option('botan_dir'))
 cpp = meson.get_compiler('cpp')
 
 gtest_dep = dependency('gtest')
-gflags_dep = cpp.find_library('gflags')
+gflags_dep = dependency('gflags')
 thread_dep = dependency('threads')
-log_dep = cpp.find_library('glog')
-
-
+log_dep = dependency('glog')
 botan_dep = cpp.find_library('botan-2', dirs: prefix_library_path)
-
 
 subdir('src')
 
@@ -35,22 +32,48 @@ churn = executable('churn-test', ['test/churn.cpp'],link_with: yael, dependencie
 
 subdir('test/unit')
 
-executable('yael-test', test_cpp_files, link_with: yael, dependencies: [log_dep, thread_dep, gtest_dep, gflags_dep], include_directories: [incdir], cpp_args: compile_args)
+unit_tests_bin = executable('yael-test', test_cpp_files, link_with: yael, dependencies: [log_dep, thread_dep, gtest_dep, gflags_dep], include_directories: [incdir], cpp_args: compile_args)
 
-install_subdir('include/yael', install_dir : 'include')
+inc_dir = 'include/yael'
+install_subdir(inc_dir, install_dir : 'include')
 
-# NOTE: gtest on ubuntu still uses deprecated functions so we can't lint the test files yet
+yael_headers = files(
+    join_paths(inc_dir, 'DelayedNetworkSocketListener.h'),
+    join_paths(inc_dir, 'EventLoop.h'),
+    join_paths(inc_dir, 'yael.h'),
+    join_paths(inc_dir, 'NetworkSocketListener.h'),
+    join_paths(inc_dir, 'EventListener.h'),
+    join_paths(inc_dir, 'TimeEventListener.h'),
+    join_paths(inc_dir, 'network/Address.h'),
+    join_paths(inc_dir, 'network/buffer.h'),
+    join_paths(inc_dir, 'network/MessageSlicer.h'),
+    join_paths(inc_dir, 'network/Socket.h'),
+    join_paths(inc_dir, 'network/TcpSocket.h'),
+    join_paths(inc_dir, 'network/TlsSocket.h'),
+)
+
 clangtidy = find_program('clang-tidy', required: false)
 
 if clangtidy.found()
     run_target(
-        'tidy',
+        'lint',
         command: [
             'scripts/clang-tidy.sh',
             clangtidy.path(),
             meson.source_root(),
             meson.build_root()
-        ] + yael_cpp_files,
+        ] + yael_cpp_files + yael_headers, # + test_cpp_files,
     depends: [yael])
 endif
 
+run_target(
+    'unit-tests',
+    command: unit_tests_bin,
+    depends: [unit_tests_bin])
+
+run_target(
+    'integration-tests',
+    command: [
+        'scripts/integration-tests.sh',
+    ],
+    depends: [churn, many_clients])

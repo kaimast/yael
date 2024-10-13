@@ -3,12 +3,12 @@
 
 int main(int argc, char **argv)
 {
-    google::SetLogDestination(google::GLOG_INFO, "yael-test");
-    google::InitGoogleLogging(argv[0]);
-
     FLAGS_logbufsecs = 0;
     FLAGS_logbuflevel = google::GLOG_INFO;
-    FLAGS_alsologtostderr = 1;
+    FLAGS_alsologtostderr = true;
+
+    google::SetLogDestination(google::GLOG_INFO, "yael-test");
+    google::InitGoogleLogging(argv[0]);
 
     testing::InitGoogleTest(&argc, argv);
 

@@ -1,7 +1,12 @@
 #include "yael/network/TlsSocket.h"
+#include "yael/network/Socket.h"
 
 #include "TlsContext.h"
 
+#include <cstdint>
+#include <utility>
+#include <vector>
+#include <memory>
 #include <glog/logging.h>
 
 namespace yael::network
@@ -40,7 +45,7 @@ std::vector<std::unique_ptr<Socket>> TlsSocket::accept()
         
         if(fd >= 0)
         {
-            auto ptr = new TlsSocket(m_slicer->type(), fd, m_key_path, m_cert_path,max_send_queue_size());
+            auto ptr = new TlsSocket(get_slicer().type(), fd, m_key_path, m_cert_path,max_send_queue_size());
             res.emplace_back(std::unique_ptr<Socket>(ptr));
         }
         else
@@ -125,18 +130,18 @@ bool TlsSocket::is_connected() const
 
 void TlsSocket::pull_messages() 
 {
-    bool res = receive_data(m_buffer);
-
-    if(!res)
-    {
-        return;
-    }
-
-    m_tls_context->tls_process_data(m_buffer);
-    m_buffer.reset();
-
     // always pull more until we get EAGAIN
-    pull_messages();
+    while (true) {
+        const bool res = receive_data(m_buffer);
+
+        if(!res)
+        {
+            return;
+        }
+
+        m_tls_context->tls_process_data(m_buffer);
+        m_buffer.reset();
+    }
 }
 
 } // namespace yael::network

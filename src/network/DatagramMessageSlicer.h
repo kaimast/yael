@@ -4,10 +4,7 @@
 #include <cmath>
 #include <cstring>
 
-namespace yael
-{
-namespace network
-{
+namespace yael::network {
 
 /**
  * Takes a stream of bytes and turns it into a sequence of messages
@@ -26,12 +23,14 @@ public:
     {
         return m_buffer;
     }
-    
+   
+    [[nodiscard]] 
     bool has_messages() const override
     {
         return !m_messages.empty();
     }
     
+    [[nodiscard]]
     MessageMode type() const override
     {
         return MessageMode::Datagram;
@@ -42,7 +41,7 @@ public:
         auto payload_length = length;
         length = length + sizeof(length);
 
-        cptr = reinterpret_cast<uint8_t*>(realloc(cptr, length));
+        cptr = reinterpret_cast<uint8_t*>(realloc(cptr, length)); //NOLINT(hicpp-no-malloc,bugprone-suspicious-realloc-usage)
         memmove(cptr+sizeof(length), cptr, payload_length);
         memcpy(cptr, reinterpret_cast<uint8_t*>(&length), sizeof(length));
     }
@@ -138,12 +137,12 @@ inline void DatagramMessageSlicer::process_buffer()
     // We need to read the header of the next datagram
     if(msg.read_pos < HEADER_SIZE)
     {
-        int32_t readlength = std::min<int32_t>(HEADER_SIZE - msg.read_pos, m_buffer.size - m_buffer.position);
+        int32_t readlength = std::min<int32_t>(HEADER_SIZE - msg.read_pos, m_buffer.size() - m_buffer.position());
 
-        memcpy(reinterpret_cast<char*>(&msg.length)+msg.read_pos, &m_buffer.data[m_buffer.position], readlength);
+        memcpy(reinterpret_cast<char*>(&msg.length)+msg.read_pos, &m_buffer.data()[m_buffer.position()], readlength);
 
         msg.read_pos += readlength;
-        m_buffer.position += readlength;
+        m_buffer.advance_position(readlength);
 
         if(msg.read_pos == HEADER_SIZE)
         {
@@ -159,7 +158,7 @@ inline void DatagramMessageSlicer::process_buffer()
     // Has header?
     if(msg.read_pos >= HEADER_SIZE)
     {
-        const int32_t readlength = std::min(msg.length - msg.read_pos, m_buffer.size - m_buffer.position);
+        const int32_t readlength = std::min(msg.length - msg.read_pos, m_buffer.size() - m_buffer.position());
 
         if(readlength > 0)
         {
@@ -168,10 +167,10 @@ inline void DatagramMessageSlicer::process_buffer()
                 throw socket_error("Invalid state: message buffer not allocated");
             }
 
-            mempcpy(&msg.data[msg.read_pos - HEADER_SIZE], &m_buffer.data[m_buffer.position], readlength);
+            mempcpy(&msg.data[msg.read_pos - HEADER_SIZE], &m_buffer.data()[m_buffer.position()], readlength);
 
             msg.read_pos += readlength;
-            m_buffer.position += readlength;
+            m_buffer.advance_position(readlength);
         }
 
         if(msg.read_pos > msg.length)
@@ -199,5 +198,4 @@ inline void DatagramMessageSlicer::process_buffer()
 }
 
 
-}
 }

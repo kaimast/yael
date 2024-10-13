@@ -17,7 +17,7 @@ NetworkSocketListener::NetworkSocketListener(std::unique_ptr<network::Socket> &&
 
 std::unique_ptr<network::Socket> NetworkSocketListener::release_socket()
 {
-    std::unique_lock lock(m_mutex);
+    const std::unique_lock lock(m_mutex);
 
     // Move socket before we unregistered so socket doesn't get closed
     auto sock = std::move(m_socket);
@@ -33,7 +33,7 @@ std::unique_ptr<network::Socket> NetworkSocketListener::release_socket()
 void NetworkSocketListener::re_register(bool first_time)
 {
     // send queue decides the mode of the listener
-    std::unique_lock lock(m_send_mutex);
+    const std::unique_lock lock(m_send_mutex);
 
     if(!m_socket->is_valid())
     {
@@ -61,7 +61,7 @@ void NetworkSocketListener::set_mode(EventListener::Mode mode)
 
 void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type)
 {
-    std::unique_lock lock(m_mutex);
+    const std::unique_lock lock(m_mutex);
 
     if(m_socket)
     {
@@ -80,7 +80,7 @@ void NetworkSocketListener::set_socket(std::unique_ptr<network::Socket> &&socket
 
 bool NetworkSocketListener::is_valid()
 {
-    std::unique_lock lock(m_mutex);
+    const std::unique_lock lock(m_mutex);
 
     if(!m_socket)
     {
@@ -92,7 +92,7 @@ bool NetworkSocketListener::is_valid()
 
 bool NetworkSocketListener::is_connected()
 {
-    std::unique_lock lock(m_mutex);
+    const std::unique_lock lock(m_mutex);
 
     if(!m_socket)
     {
@@ -392,9 +392,8 @@ void NetworkSocketListener::close_socket_internal(std::unique_lock<std::mutex> &
             try {
                 auto &el = EventLoop::get_instance();
                 el.unregister_event_listener(shared_from_this());
-            } catch(const std::runtime_error&) {
-                // can happen during shutdown
-                // ignore...
+            } catch(const std::runtime_error&) { // NOLINT(bugprone-empty-catch)
+                // can happen during shutdown, ignore...
             }
         }
     }

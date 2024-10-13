@@ -1,3 +1,4 @@
+#include <unistd.h>
 
 #include <sys/timerfd.h>
 #include <yael/EventLoop.h>
@@ -45,6 +46,7 @@ void TimeEventListener::re_register(bool first_time)
 {
     if(!is_valid())
     {
+        VLOG(1) << "Cannot (re-)register. Time event listener invalid.";
         return;
     }
 
@@ -55,6 +57,8 @@ void TimeEventListener::re_register(bool first_time)
 void TimeEventListener::on_read_ready()
 {
     std::unique_lock lock(m_mutex);
+
+    VLOG(2) << "Time event listener got woken up";
 
     uint64_t buf;
     auto res = ::read(m_fd, &buf, sizeof(buf));
@@ -90,6 +94,8 @@ void TimeEventListener::on_read_ready()
             }
         }
 
+        VLOG(1) << "Found " << count << " time event(s) to trigger";
+
         lock.unlock();
         for(size_t i = 0; i < count; ++i)
         {
@@ -121,7 +127,7 @@ void TimeEventListener::on_read_ready()
 
 bool TimeEventListener::schedule(uint64_t delay)
 {
-    std::unique_lock lock(m_mutex);
+    const std::unique_lock lock(m_mutex);
 
     if(m_fd < 0)
     {
@@ -141,17 +147,20 @@ bool TimeEventListener::schedule(uint64_t delay)
 
     if(is_scheduled)
     {
+        VLOG(2) << "Time event listener already enabled";
         return true;
     }
+
+    VLOG(1) << "(Re-)enabling time event listener";
 
     return internal_schedule(delay);
 }
 
 bool TimeEventListener::unschedule()
 {
-    std::unique_lock lock(m_mutex);
+    const std::unique_lock lock(m_mutex);
 
-    bool has_events = !m_queued_events.empty();
+    const bool has_events = !m_queued_events.empty();
     m_queued_events.clear();
 
     return has_events;
@@ -159,7 +168,7 @@ bool TimeEventListener::unschedule()
 
 bool TimeEventListener::internal_schedule(uint64_t delay)
 {
-    int32_t flags = 0;
+    const auto flags = 0;
     itimerspec new_value;
     new_value.it_interval.tv_sec = 0;
     new_value.it_interval.tv_nsec = 0;
@@ -173,8 +182,8 @@ bool TimeEventListener::internal_schedule(uint64_t delay)
     }
     else
     {
-        new_value.it_value.tv_sec = delay / 1000;
-        new_value.it_value.tv_nsec = (delay % 1000) * (1000*1000);
+        new_value.it_value.tv_sec = static_cast<__syscall_slong_t>(delay) / 1000;
+        new_value.it_value.tv_nsec = static_cast<__syscall_slong_t>(delay % 1000) * 1'000'000;
     }
 
     itimerspec old_value;

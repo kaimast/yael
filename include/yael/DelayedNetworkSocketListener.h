@@ -19,11 +19,11 @@ class DelayedNetworkSocketListener : public NetworkSocketListener
 public:
     DelayedNetworkSocketListener();
 
-    DelayedNetworkSocketListener(uint32_t delay);
+    explicit DelayedNetworkSocketListener(uint32_t delay);
 
     DelayedNetworkSocketListener(uint32_t delay, std::unique_ptr<network::Socket> &&socket, SocketType type);
 
-    ~DelayedNetworkSocketListener();
+    ~DelayedNetworkSocketListener() override;
 
     void send(std::unique_ptr<uint8_t[]> &&data, size_t length, bool blocking = false, bool async = false);
 
@@ -36,7 +36,7 @@ public:
     void close_socket() override;
 
 protected:
-    virtual void set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type) override;
+    void set_socket(std::unique_ptr<network::Socket> &&socket, SocketType type) override;
 
 private:
     std::shared_ptr<DelayedMessageSender> m_sender;

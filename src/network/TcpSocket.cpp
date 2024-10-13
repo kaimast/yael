@@ -1,6 +1,5 @@
 #include "yael/network/TcpSocket.h"
 
-#include <sstream>
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <sys/poll.h>
@@ -9,7 +8,6 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-#include <iostream>
 #include <cerrno>
 #include <stdexcept>
 #include <cstring>
@@ -167,7 +165,7 @@ bool TcpSocket::listen(const Address& address, uint32_t backlog)
     flags = flags | O_NONBLOCK;
     fcntl(m_fd, F_SETFL, flags);
 
-    if(::listen(m_fd, backlog) == 0)
+    if(::listen(m_fd, static_cast<int>(backlog)) == 0)
     {
         m_state = State::Listening;
         return true;
@@ -205,7 +203,7 @@ bool TcpSocket::connect(const Address& address, const std::string& name)
     }
     else
     {
-        Address my_addr = resolve_URL(name, ANY_PORT, address.IPv6);
+        const auto my_addr = resolve_URL(name, ANY_PORT, address.IPv6);
 
         if(!bind_socket(my_addr))
         {
@@ -323,7 +321,7 @@ void TcpSocket::calculate_remote_address()
 
     inet_ntop( AF_INET, dynamic_cast<in_addr*>(&sin.sin_addr), &ipstring[0], 16);
 
-    uint16_t port = htons(sin.sin_port);
+    const auto port = htons(sin.sin_port);
 
     m_remote_address.IP = &ipstring[0];
     m_remote_address.PortNumber = port;
@@ -334,7 +332,7 @@ bool TcpSocket::close(bool fast)
     if(m_state == State::Connected && !fast)
     {
         m_state = State::Shutdown;
-        int i = ::shutdown(m_fd, SHUT_RDWR);
+        const auto i = ::shutdown(m_fd, SHUT_RDWR);
 
         if(i != 0)
         {
@@ -357,7 +355,7 @@ bool TcpSocket::close(bool fast)
     if(m_fd > 0)
     {
         m_state = State::Closed;
-        int i = ::close(m_fd);
+        const int i = ::close(m_fd);
         (void)i; //unused
         m_fd = -1;
 
@@ -375,7 +373,7 @@ bool TcpSocket::close(bool fast)
 
     // threads might wait for send queue to be empty
     {
-        std::unique_lock lock(m_send_queue_mutex);
+        const std::unique_lock lock(m_send_queue_mutex);
         m_send_queue_cond.notify_all();
     }
     
@@ -384,29 +382,30 @@ bool TcpSocket::close(bool fast)
 
 void TcpSocket::pull_messages() 
 {
-    auto &buffer = m_slicer->buffer();
-
-    if(!buffer.is_valid())
+    // always pull more until we get EAGAIN
+    while(true)
     {
-        bool res = receive_data(buffer);
-        if(!res)
+        auto &buffer = m_slicer->buffer();
+
+        if(!buffer.is_valid())
         {
-            return;
+            const bool res = receive_data(buffer);
+            if(!res)
+            {
+                return;
+            }
+        }
+
+        try
+        {
+            m_slicer->process_buffer();
+        }
+        catch(std::exception &e)
+        {
+            // ignore
+            LOG(WARNING) << "Failed to process new message: " << e.what();
         }
     }
-
-    try
-    {
-        m_slicer->process_buffer();
-    }
-    catch(std::exception &e)
-    {
-        // ignore
-    }
-
-    // read rest of buffer
-    // always pull more until we get EAGAIN
-    pull_messages();
 }
 
 bool TcpSocket::receive_data(buffer_t &buffer)
@@ -421,8 +420,8 @@ bool TcpSocket::receive_data(buffer_t &buffer)
         throw std::runtime_error("TcpSocket::receive_data failed: Still have data queued up in buffer");
     }
 
-    memset(&buffer.data[0], 0, yael::network::buffer_t::MAX_SIZE);
-    auto x = ::recv(m_fd, buffer.data, yael::network::buffer_t::MAX_SIZE, 0);
+    memset(&buffer.data()[0], 0, yael::network::buffer_t::MAX_SIZE);
+    auto x = ::recv(m_fd, buffer.data(), yael::network::buffer_t::MAX_SIZE, 0);
 
     // Now act accordingly
     // > 0 -> data
@@ -430,8 +429,8 @@ bool TcpSocket::receive_data(buffer_t &buffer)
     // < 0 -> error/block
     if(x > 0)
     {
-        buffer.size = x;
-        buffer.position = 0;
+        buffer.set_size(x);
+        buffer.set_position(0);
 
         return true;
     }
@@ -500,7 +499,7 @@ bool TcpSocket::send(std::unique_ptr<uint8_t[]> &data, uint32_t len, bool async)
     }
 
     {
-        std::unique_lock lock(m_send_queue_mutex);
+        const std::unique_lock lock(m_send_queue_mutex);
 
         if(m_send_queue_size >= m_max_send_queue_size)
         {
@@ -538,7 +537,7 @@ bool TcpSocket::send(std::shared_ptr<uint8_t[]> &data, uint32_t len, bool async)
     }
 
     {
-        std::unique_lock lock(m_send_queue_mutex);
+        const std::unique_lock lock(m_send_queue_mutex);
 
         if(m_send_queue_size >= m_max_send_queue_size)
         {
@@ -575,7 +574,7 @@ void TcpSocket::wait_send_queue_empty()
 
 bool TcpSocket::do_send()
 {
-    std::unique_lock send_lock(m_send_mutex);
+    const std::unique_lock send_lock(m_send_mutex);
 
     while(true)
     {
@@ -583,7 +582,7 @@ bool TcpSocket::do_send()
         // this way other threads can queue up messages while we write to the socket
         if(!m_current_message)
         {
-            std::unique_lock send_queue_lock(m_send_queue_mutex);
+            const std::unique_lock send_queue_lock(m_send_queue_mutex);
      
             auto it = m_send_queue.begin();
             

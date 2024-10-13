@@ -17,9 +17,9 @@ public:
      *
      * You only need to specify key and certificate for the server
      */
-    TlsSocket(MessageMode mode, std::string key_path = "", std::string cert_path = "", size_t max_send_queue_size = TcpSocket::DEFAULT_MAX_SEND_QUEUE_SIZE);
+    explicit TlsSocket(MessageMode mode, std::string key_path = "", std::string cert_path = "", size_t max_send_queue_size = TcpSocket::DEFAULT_MAX_SEND_QUEUE_SIZE);
 
-    ~TlsSocket();
+    ~TlsSocket() override;
 
     std::vector<std::unique_ptr<Socket>> accept() override;
 
@@ -39,6 +39,7 @@ public:
 
     bool do_send() override  __attribute__((warn_unused_result));
 
+    [[nodiscard]]
     bool is_connected() const override;
 
 protected:
