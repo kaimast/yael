@@ -21,7 +21,7 @@ public:
     } 
 
 private:
-    int count = 0;
+    volatile int count = 0;
 };
 
 class TestTimeListener2 : public TimeEventListener
@@ -41,7 +41,7 @@ public:
     } 
 
 private:
-    int count = 0;
+    volatile int count = 0;
 };
 
 
