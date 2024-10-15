@@ -153,6 +153,7 @@ std::pair<EventListenerPtr, EventLoop::EventType> EventLoop::update() {
         // Let's try to continue here, if possible
         LOG(ERROR) << "epoll_wait() returned an error: " << strerror(errno)
                    << " (errno=" << errno << ")";
+        return {nullptr, EventType::None};
     }
 
     if (nfds > 1) {
