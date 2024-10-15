@@ -24,14 +24,12 @@ To make your socket handler compatible with the event loop just use the NetworkS
 ```cpp
 class MyServer : protected NetworkSocketListener
 {
-public:
-    bool init()
-    {
+  public:
+    bool init() {
         auto socket = new network::Socket();
         bool res = socket->listen("localhost", 4242, 100);
 
-        if(!res)
-        {
+        if(!res) {
             std::cerr << "Failed to bind port" << std::endl;
             return false;
         }
@@ -40,9 +38,8 @@ public:
         return true;
     }
 
-protected:
-    void on_new_connection(std::unique_ptr<yael::network::Socket> &&socket) override
-    {
+  protected:
+    void on_new_connection(std::unique_ptr<yael::network::Socket> &&socket) override {
         auto &el = EventLoop::get_instance();
         el.make_socket_listener<MyClientHandler>(std::move(socket));
     }

@@ -1,26 +1,21 @@
-#include <unistd.h>
-
 #include <sys/timerfd.h>
+#include <unistd.h>
 #include <yael/EventLoop.h>
 #include <yael/TimeEventListener.h>
 
-namespace yael
-{
+namespace yael {
 
-TimeEventListener::TimeEventListener()
-{
+TimeEventListener::TimeEventListener() {
     constexpr int32_t flags = 0;
     m_fileno = m_fd = timerfd_create(CLOCK_REALTIME, flags);
 }
 
 TimeEventListener::~TimeEventListener() = default;
 
-void TimeEventListener::close_socket()
-{
+void TimeEventListener::close_socket() {
     std::unique_lock lock(m_mutex);
 
-    if(m_fd < 0)
-    {
+    if (m_fd < 0) {
         return;
     }
 
@@ -29,33 +24,29 @@ void TimeEventListener::close_socket()
 
     lock.unlock();
 
-    if(EventLoop::is_initialized())
-    {
+    if (EventLoop::is_initialized()) {
         auto &el = EventLoop::get_instance();
         el.unregister_event_listener(shared_from_this());
     }
 }
 
-void TimeEventListener::on_error()
-{
+void TimeEventListener::on_error() {
     LOG(WARNING) << "Got error; closing socket";
     close_socket();
 }
 
-void TimeEventListener::re_register(bool first_time)
-{
-    if(!is_valid())
-    {
+void TimeEventListener::re_register(bool first_time) {
+    if (!is_valid()) {
         VLOG(1) << "Cannot (re-)register. Time event listener invalid.";
         return;
     }
 
     auto &el = EventLoop::get_instance();
-    el.notify_listener_mode_change(shared_from_this(), EventListener::Mode::ReadOnly, first_time);
+    el.notify_listener_mode_change(shared_from_this(),
+                                   EventListener::Mode::ReadOnly, first_time);
 }
 
-void TimeEventListener::on_read_ready()
-{
+void TimeEventListener::on_read_ready() {
     std::unique_lock lock(m_mutex);
 
     VLOG(2) << "Time event listener got woken up";
@@ -63,33 +54,26 @@ void TimeEventListener::on_read_ready()
     uint64_t buf;
     auto res = ::read(m_fd, &buf, sizeof(buf));
 
-    if(res != sizeof(buf))
-    {
+    if (res != sizeof(buf)) {
         LOG(FATAL) << "Failed to read from timefd";
     }
 
-    if(buf == 1)
-    {
+    if (buf == 1) {
         auto now = get_current_time();
         size_t count = 0;
 
-        while(true)
-        {
-            if(m_queued_events.empty())
-            {
+        while (true) {
+            if (m_queued_events.empty()) {
                 break;
             }
 
             auto it = m_queued_events.begin();
-            if(*it <= now)
-            {
+            if (*it <= now) {
                 // erase before we invoke the callback
                 // because application code might call schedule()
                 m_queued_events.erase(it);
                 count++;
-            }
-            else
-            {
+            } else {
                 break;
             }
         }
@@ -97,67 +81,55 @@ void TimeEventListener::on_read_ready()
         VLOG(1) << "Found " << count << " time event(s) to trigger";
 
         lock.unlock();
-        for(size_t i = 0; i < count; ++i)
-        {
+        for (size_t i = 0; i < count; ++i) {
             this->on_time_event();
         }
         lock.lock();
 
-        if(!m_queued_events.empty() && m_fd >= 0)
-        {
+        if (!m_queued_events.empty() && m_fd >= 0) {
             auto next = *m_queued_events.begin();
 
-            if(next < now)
-            {
+            if (next < now) {
                 LOG(FATAL) << "Invalid state";
             }
 
             internal_schedule(next - now);
         }
-    }
-    else if(buf == 0)
-    {
+    } else if (buf == 0) {
         DLOG(WARNING) << "Spurious wakeup";
-    }
-    else
-    {
+    } else {
         LOG(ERROR) << "Got more than one timeout!";
     }
 }
 
-bool TimeEventListener::schedule(uint64_t delay)
-{
+bool TimeEventListener::schedule(uint64_t delay) {
     const std::unique_lock lock(m_mutex);
 
-    if(m_fd < 0)
-    {
+    if (m_fd < 0) {
         LOG(WARNING) << "Cannot schedule event: socket already closed";
         return false;
     }
 
     bool is_scheduled = !m_queued_events.empty();
-    
+
     auto start = get_current_time() + delay;
     auto it = m_queued_events.insert(start);
 
-    if(it == m_queued_events.begin())
-    {
+    if (it == m_queued_events.begin()) {
         is_scheduled = false;
     }
 
-    if(is_scheduled)
-    {
+    if (is_scheduled) {
         VLOG(2) << "Time event listener already enabled";
         return true;
     }
 
-    VLOG(1) << "(Re-)enabling time event listener";
+    VLOG(2) << "(Re-)enabling time event listener";
 
     return internal_schedule(delay);
 }
 
-bool TimeEventListener::unschedule()
-{
+bool TimeEventListener::unschedule() {
     const std::unique_lock lock(m_mutex);
 
     const bool has_events = !m_queued_events.empty();
@@ -166,32 +138,29 @@ bool TimeEventListener::unschedule()
     return has_events;
 }
 
-bool TimeEventListener::internal_schedule(uint64_t delay)
-{
+bool TimeEventListener::internal_schedule(uint64_t delay) {
     const auto flags = 0;
     itimerspec new_value;
     new_value.it_interval.tv_sec = 0;
     new_value.it_interval.tv_nsec = 0;
 
-    if(delay == 0)
-    {
+    if (delay == 0) {
         // Setting the delay to 0 disarms the timer
         // Instead we set it to 1ns as a workaround
         new_value.it_value.tv_sec = 0;
         new_value.it_value.tv_nsec = 1;
-    }
-    else
-    {
-        new_value.it_value.tv_sec = static_cast<__syscall_slong_t>(delay) / 1000;
-        new_value.it_value.tv_nsec = static_cast<__syscall_slong_t>(delay % 1000) * 1'000'000;
+    } else {
+        new_value.it_value.tv_sec =
+            static_cast<__syscall_slong_t>(delay) / 1000;
+        new_value.it_value.tv_nsec =
+            static_cast<__syscall_slong_t>(delay % 1000) * 1'000'000;
     }
 
     itimerspec old_value;
 
     auto res = timerfd_settime(m_fd, flags, &new_value, &old_value);
 
-    if(res != 0)
-    {
+    if (res != 0) {
         LOG(ERROR) << "Failed to set time event";
         return false;
     }
@@ -199,4 +168,4 @@ bool TimeEventListener::internal_schedule(uint64_t delay)
     return true;
 }
 
-}
+} // namespace yael

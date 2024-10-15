@@ -1,52 +1,37 @@
 #include <gtest/gtest.h>
-#include <yael/TimeEventListener.h>
 #include <yael/EventLoop.h>
+#include <yael/TimeEventListener.h>
 
 using namespace yael;
 
-class TimeEventTest : public testing::Test
-{
-};
+class TimeEventTest : public testing::Test {};
 
-class TestTimeListener : public TimeEventListener
-{
-public:
-    void on_time_event() override
-    {
-        count += 1;
-    }
+class TestTimeListener : public TimeEventListener {
+  public:
+    void on_time_event() override { count += 1; }
 
-    int get_count() {
-        return count;
-    } 
+    int get_count() { return count; }
 
-private:
+  private:
     volatile int count = 0;
 };
 
-class TestTimeListener2 : public TimeEventListener
-{
-public:
-    void on_time_event() override
-    {
+class TestTimeListener2 : public TimeEventListener {
+  public:
+    void on_time_event() override {
         count += 1;
-        if(count < 10)
-        {
+        if (count < 10) {
             this->schedule(100);
         }
     }
 
-    int get_count() {
-        return count;
-    } 
+    int get_count() { return count; }
 
-private:
+  private:
     volatile int count = 0;
 };
 
-
-TEST(TimeEventTest, multi_schedule)
-{
+TEST(TimeEventTest, multi_schedule) {
     EventLoop::initialize();
     auto &el = EventLoop::get_instance();
 
@@ -56,9 +41,8 @@ TEST(TimeEventTest, multi_schedule)
     auto hdl = el.make_event_listener<TestTimeListener>();
     hdl->schedule(100);
 
-    while(hdl->get_count() < expected1)
-    {
-        //pass
+    while (hdl->get_count() < expected1) {
+        // pass
     }
 
     VLOG(1) << "Got first time event";
@@ -66,9 +50,8 @@ TEST(TimeEventTest, multi_schedule)
 
     hdl->schedule(100);
 
-    while(hdl->get_count() < expected2)
-    {
-        //pass
+    while (hdl->get_count() < expected2) {
+        // pass
     }
 
     VLOG(1) << "Got second time event";
@@ -80,8 +63,7 @@ TEST(TimeEventTest, multi_schedule)
     EventLoop::destroy();
 }
 
-TEST(TimeEventTest, self_schedule)
-{
+TEST(TimeEventTest, self_schedule) {
     EventLoop::initialize();
     auto &el = EventLoop::get_instance();
 
@@ -90,9 +72,8 @@ TEST(TimeEventTest, self_schedule)
 
     hdl->schedule(0);
 
-    while(hdl->get_count() != expected)
-    {
-        //pass
+    while (hdl->get_count() != expected) {
+        // pass
     }
 
     el.stop();
@@ -103,8 +84,7 @@ TEST(TimeEventTest, self_schedule)
     EXPECT_EQ(expected, hdl->get_count());
 }
 
-TEST(TimeEventTest, schedule_three)
-{
+TEST(TimeEventTest, schedule_three) {
     EventLoop::initialize();
     auto &el = EventLoop::get_instance();
 
@@ -114,9 +94,8 @@ TEST(TimeEventTest, schedule_three)
     hdl->schedule(100);
     hdl->schedule(400);
 
-    while(hdl->get_count() != 3)
-    {
-        //pass
+    while (hdl->get_count() != 3) {
+        // pass
     }
 
     el.stop();
@@ -127,8 +106,7 @@ TEST(TimeEventTest, schedule_three)
     EXPECT_EQ(3U, hdl->get_count());
 }
 
-TEST(TimeEventTest, schedule_three2)
-{
+TEST(TimeEventTest, schedule_three2) {
     EventLoop::initialize();
     auto &el = EventLoop::get_instance();
 
@@ -138,9 +116,8 @@ TEST(TimeEventTest, schedule_three2)
     hdl->schedule(0);
     hdl->schedule(0);
 
-    while(hdl->get_count() != 3)
-    {
-        //pass
+    while (hdl->get_count() != 3) {
+        // pass
     }
 
     el.stop();
