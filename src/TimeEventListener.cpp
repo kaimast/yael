@@ -151,7 +151,7 @@ bool TimeEventListener::schedule(uint64_t delay)
         return true;
     }
 
-    VLOG(1) << "(Re-)enabling time event listener";
+    VLOG(2) << "(Re-)enabling time event listener";
 
     return internal_schedule(delay);
 }

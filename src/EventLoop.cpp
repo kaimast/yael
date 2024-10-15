@@ -270,7 +270,7 @@ void EventLoop::register_event_listener(EventListenerPtr listener)
 
 void EventLoop::register_socket(int32_t fileno, uint32_t flags, bool modify)
 {
-    VLOG(1) << "Registering new socket with fd=" << fileno;
+    VLOG(2) << "Registering new socket with fd=" << fileno;
 
     struct epoll_event ev;
     ev.events = flags;
@@ -289,7 +289,7 @@ void EventLoop::register_socket(int32_t fileno, uint32_t flags, bool modify)
 void EventLoop::notify_listener_mode_change(EventListenerPtr listener, EventListener::Mode mode, bool first_time)
     noexcept
 {
-    VLOG(1) << "Event listener (fileno=" << listener->get_fileno() << ") mode changed to " << EventListener::mode_to_string(mode);
+    VLOG(2) << "Event listener (fileno=" << listener->get_fileno() << ") mode changed to " << EventListener::mode_to_string(mode);
 
     auto flags = get_flags(mode);
 
@@ -350,25 +350,25 @@ void EventLoop::thread_loop()
 
         if(type == EventType::ReadWrite)
         {
-            VLOG(2) << "Got read/write event";
+            VLOG(3) << "Got read/write event";
             listener->on_read_ready();
             listener->on_write_ready();
         }
         else if(type == EventType::Read)
         {
-            VLOG(2) << "Got read event";
+            VLOG(3) << "Got read event";
  
             listener->on_read_ready();
         }
         else if(type == EventType::Write)
         {
-            VLOG(2) << "Got write event";
+            VLOG(3) << "Got write event";
  
             listener->on_write_ready();
         }
         else if(type == EventType::Error)
         {
-            VLOG(2) << "Got error event";
+            VLOG(3) << "Got error event";
             listener->on_error();
         }
         else
