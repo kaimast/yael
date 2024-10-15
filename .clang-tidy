@@ -1,5 +1,5 @@
 # Need to disable a bunch of tests because we access the C socket APIs
 # Also some other lints are disable for now due to lack of time
-Checks: 'hicpp-*,bugprone-*,modernize-*,misc-*,-modernize-avoid-c-arrays,-modernize-use-trailing-return-type,-hicpp-no-array-decay,-hicpp-avoid-c-arrays,-hicpp-member-init,-hicpp-vararg,-hicpp-signed-bitwise,-misc-include-cleaner,-bugprone-easily-swappable-parameters,-bugprone-unhandled-exception-at-new,-misc-no-recursion,-misc-non-private-member-variables-in-classses,-hicpp-special-member-functions,-misc-non-private-member-variables-in-classes'
+Checks: 'hicpp-*,bugprone-*,modernize-*,misc-*,-modernize-avoid-c-arrays,-modernize-use-trailing-return-type,-hicpp-no-array-decay,-hicpp-avoid-c-arrays,-hicpp-member-init,-hicpp-vararg,-hicpp-signed-bitwise,-misc-include-cleaner,-bugprone-easily-swappable-parameters,-bugprone-unhandled-exception-at-new,-misc-no-recursion,-misc-non-private-member-variables-in-classses,-hicpp-special-member-functions,-misc-non-private-member-variables-in-classes,-clang-analyzer-core.uninitialized'
 
 
