@@ -342,13 +342,8 @@ void NetworkSocketListener::close_socket_internal(
         }
 
         if (EventLoop::is_initialized()) {
-            try {
-                auto &el = EventLoop::get_instance();
-                el.unregister_event_listener(shared_from_this());
-            } catch (
-                const std::runtime_error &) { // NOLINT(bugprone-empty-catch)
-                // can happen during shutdown, ignore...
-            }
+            auto &el = EventLoop::get_instance();
+            el.unregister_event_listener(shared_from_this());
         }
     }
 }
