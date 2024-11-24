@@ -59,9 +59,9 @@ if clangtidy.found()
         'lint',
         command: [
             'scripts/clang-tidy.sh',
-            clangtidy.path(),
-            meson.source_root(),
-            meson.build_root()
+            clangtidy.full_path(),
+            meson.global_source_root(),
+            meson.global_build_root()
         ] + yael_cpp_files + yael_headers, # + test_cpp_files,
     depends: [yael])
 endif

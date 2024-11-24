@@ -103,7 +103,7 @@ void EventLoop::stop() noexcept {
         auto it = m_event_listeners.begin();
         auto listener = it->second;
 
-        VLOG(1) << "Stopping next event listener (fileno="
+        VLOG(2) << "Stopping next event listener (fileno="
                 << listener->get_fileno() << ")";
 
         lock.unlock();
@@ -246,7 +246,7 @@ void EventLoop::register_socket(int32_t fileno, uint32_t flags, bool modify) {
 void EventLoop::notify_listener_mode_change(EventListenerPtr listener,
                                             EventListener::Mode mode,
                                             bool first_time) noexcept {
-    VLOG(2) << "Event listener (fileno=" << listener->get_fileno()
+    VLOG(3) << "Event listener (fileno=" << listener->get_fileno()
             << ") mode changed to " << EventListener::mode_to_string(mode);
 
     auto flags = get_flags(mode);
@@ -268,7 +268,7 @@ void EventLoop::notify_listener_mode_change(EventListenerPtr listener,
 }
 
 void EventLoop::unregister_event_listener(EventListenerPtr listener) noexcept {
-    VLOG(1) << "Removing event listener (fileno=" << listener->get_fileno()
+    VLOG(2) << "Removing event listener (fileno=" << listener->get_fileno()
             << ")";
 
     const std::unique_lock lock(m_event_listeners_mutex);
