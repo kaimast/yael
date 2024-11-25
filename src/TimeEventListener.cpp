@@ -78,7 +78,7 @@ void TimeEventListener::on_read_ready() {
             }
         }
 
-        VLOG(1) << "Found " << count << " time event(s) to trigger";
+        VLOG(2) << "Found " << count << " time event(s) to trigger";
 
         lock.unlock();
         for (size_t i = 0; i < count; ++i) {
